@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from athletiq.data.synthetic import generate_synthetic_possession
@@ -14,6 +14,7 @@ from athletiq.metrics import (
     progressive_carry_xt,
     raw_individual_pressure,
 )
+from athletiq.metrics.ddi_attribution import simulate_match_ddi
 from athletiq.metrics.retention import PossessionSequence
 
 router = APIRouter()
@@ -120,4 +121,50 @@ def demo_sequence(
         retained=retained,
         n_frames=n_frames,
         mean_pressure=mean_p,
+    )
+
+
+class DDILeaderboardRow(BaseModel):
+    player_id: str
+    name: str
+    position: str
+    ddi_m2: float
+    actions: int
+    avg_per_action: float
+
+
+class DDILeaderboardResponse(BaseModel):
+    seed: int
+    n_actions: int
+    tau: float
+    total_ddi_m2: float
+    items: list[DDILeaderboardRow]
+
+
+@router.get("/ddi-leaderboard", response_model=DDILeaderboardResponse)
+def ddi_leaderboard(
+    seed: int = Query(default=0),
+    n_actions: int = Query(default=60, ge=1, le=500),
+    tau: float = Query(default=0.08, ge=0.0, le=1.0),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> DDILeaderboardResponse:
+    """Per-player DDI aggregated over a synthetic match of single-mover actions."""
+    match = simulate_match_ddi(seed=seed, n_actions=n_actions, tau=tau)
+    rows = [
+        DDILeaderboardRow(
+            player_id=p.player_id,
+            name=p.name,
+            position=p.position,
+            ddi_m2=p.ddi_m2,
+            actions=p.actions,
+            avg_per_action=p.avg_per_action,
+        )
+        for p in match.leaderboard[:limit]
+    ]
+    return DDILeaderboardResponse(
+        seed=match.seed,
+        n_actions=match.n_actions,
+        tau=match.tau,
+        total_ddi_m2=match.total_ddi_m2,
+        items=rows,
     )

@@ -134,3 +134,27 @@ def test_cv_capabilities(client: TestClient) -> None:
     assert r.status_code == 200
     # Doesn't assert cv_available — depends on whether [cv] extras are installed.
     assert "cv_available" in r.json()
+
+
+def test_ddi_leaderboard_endpoint(client: TestClient) -> None:
+    r = client.get("/api/metrics/ddi-leaderboard?seed=0&n_actions=30&tau=0.08&limit=11")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["seed"] == 0
+    assert body["n_actions"] == 30
+    assert body["tau"] == 0.08
+    assert body["total_ddi_m2"] >= 0.0
+    assert len(body["items"]) == 11
+    # Descending by DDI.
+    vals = [row["ddi_m2"] for row in body["items"]]
+    assert vals == sorted(vals, reverse=True)
+    # Forwards (WG/ST) should top the board.
+    top_positions = {body["items"][i]["position"] for i in range(3)}
+    assert top_positions & {"WG", "ST", "AM", "CM"}
+
+
+def test_ddi_leaderboard_validates_bounds(client: TestClient) -> None:
+    bad = client.get("/api/metrics/ddi-leaderboard?n_actions=0")
+    assert bad.status_code == 422
+    too_many = client.get("/api/metrics/ddi-leaderboard?n_actions=9999")
+    assert too_many.status_code == 422

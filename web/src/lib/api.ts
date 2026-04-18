@@ -159,6 +159,23 @@ export type StatsBombMatchCohortResponse = {
   imputed_features: string[];
 };
 
+export type DDILeaderboardRow = {
+  player_id: string;
+  name: string;
+  position: string;
+  ddi_m2: number;
+  actions: number;
+  avg_per_action: number;
+};
+
+export type DDILeaderboardResponse = {
+  seed: number;
+  n_actions: number;
+  tau: number;
+  total_ddi_m2: number;
+  items: DDILeaderboardRow[];
+};
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(`${API_BASE}${path}`, {
     ...init,
