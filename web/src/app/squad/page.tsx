@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   api,
   type AhpPreference,
@@ -8,6 +9,11 @@ import {
   type SavedSquad,
   type SquadResponse,
 } from "@/lib/api";
+import {
+  SQUAD_PHILOSOPHIES,
+  type SquadPhilosophy,
+  type SquadPhilosophyKey,
+} from "@/lib/squad-presets";
 
 const DEFAULT_CRITERIA = [
   "pabr",
@@ -40,6 +46,23 @@ function makeAllOnes(n: number): number[][] {
   return Array.from({ length: n }, () => Array.from({ length: n }, () => 1));
 }
 
+function PresetFromUrl({
+  onPreset,
+}: {
+  onPreset: (key: SquadPhilosophyKey) => void;
+}) {
+  const searchParams = useSearchParams();
+  const applied = useRef(false);
+  useEffect(() => {
+    if (applied.current) return;
+    const key = searchParams.get("preset") as SquadPhilosophyKey | null;
+    if (!key) return;
+    applied.current = true;
+    onPreset(key);
+  }, [searchParams, onPreset]);
+  return null;
+}
+
 export default function SquadPage() {
   const [criteria, setCriteria] = useState<string[]>(DEFAULT_CRITERIA);
   const [matrix, setMatrix] = useState<number[][]>(() =>
@@ -57,6 +80,8 @@ export default function SquadPage() {
   const [prefName, setPrefName] = useState("");
   const [squadName, setSquadName] = useState("");
   const [loadedPrefId, setLoadedPrefId] = useState<number | null>(null);
+  const [activePhilosophy, setActivePhilosophy] =
+    useState<SquadPhilosophyKey | null>(null);
 
   const refreshSaved = async () => {
     try {
@@ -75,6 +100,11 @@ export default function SquadPage() {
     void refreshSaved();
   }, []);
 
+  const handlePresetFromUrl = (key: SquadPhilosophyKey) => {
+    const p = SQUAD_PHILOSOPHIES.find((s) => s.key === key);
+    if (p) void onApplyPhilosophy(p);
+  };
+
   const setCell = (i: number, j: number, val: number) => {
     setMatrix((m) =>
       m.map((row, ri) =>
@@ -87,7 +117,10 @@ export default function SquadPage() {
     );
   };
 
-  const onOptimize = async () => {
+  const runOptimize = async (
+    useCriteria: string[],
+    useMatrix: number[][],
+  ) => {
     setBusy(true);
     setError(null);
     setAhp(null);
@@ -95,13 +128,16 @@ export default function SquadPage() {
     try {
       const ahpRes = await api<AhpResponse>("/api/squad/ahp", {
         method: "POST",
-        body: JSON.stringify({ criteria, pairwise_matrix: matrix }),
+        body: JSON.stringify({
+          criteria: useCriteria,
+          pairwise_matrix: useMatrix,
+        }),
       });
       setAhp(ahpRes);
       const squadRes = await api<SquadResponse>("/api/squad", {
         method: "POST",
         body: JSON.stringify({
-          criteria,
+          criteria: useCriteria,
           weights: ahpRes.weights,
           formation: DEFAULT_FORMATION,
           budget,
@@ -114,6 +150,17 @@ export default function SquadPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const onOptimize = () => runOptimize(criteria, matrix);
+
+  const onApplyPhilosophy = async (p: SquadPhilosophy) => {
+    const cloned = p.matrix.map((row) => [...row]);
+    setCriteria(p.criteria);
+    setMatrix(cloned);
+    setActivePhilosophy(p.key);
+    setLoadedPrefId(null);
+    await runOptimize(p.criteria, cloned);
   };
 
   const onSavePref = async () => {
@@ -149,6 +196,7 @@ export default function SquadPage() {
     });
     setSquad(null);
     setLoadedPrefId(p.id);
+    setActivePhilosophy(null);
   };
 
   const onDeletePref = async (id: number) => {
@@ -222,77 +270,122 @@ export default function SquadPage() {
 
   return (
     <div className="grid max-w-6xl gap-8 lg:grid-cols-[1fr_280px]">
+      <Suspense fallback={null}>
+        <PresetFromUrl onPreset={handlePresetFromUrl} />
+      </Suspense>
       <div>
         <h1 className="text-3xl font-semibold">Squad optimizer</h1>
         <p className="mt-2 text-white/60">
-          Build an AHP pairwise matrix for your criteria, let the engine
-          compute weights + consistency ratio, then solve the BIP roster
-          optimization (Eq. 12–18) for the optimal XI. Save your preferences
-          and resulting XIs to re-load them later.
+          Pick your footballing philosophy and we&apos;ll weight the criteria
+          for you, solve the roster optimization, and name the XI. The raw AHP
+          pairwise matrix is one click away if you want to tune it yourself.
         </p>
 
         <h2 className="mt-8 text-sm font-medium text-white/80">
-          AHP pairwise preferences
+          Your philosophy
         </h2>
         <p className="mt-1 text-xs text-white/50">
-          For each pair, how strongly does row dominate column? 1=equal,
-          3=moderate, 5=strong, 7=very strong, 9=extreme. Reciprocals
-          auto-fill.
+          Pick the style you want this team to play. You can always tweak the
+          weights by opening the Analyst view below.
         </p>
-        <div className="mt-4 overflow-x-auto rounded border border-white/10">
-          <table className="min-w-full text-sm">
-            <thead className="bg-white/5 text-left text-white/60">
-              <tr>
-                <th className="px-3 py-2"></th>
-                {criteria.map((c) => (
-                  <th key={c} className="px-3 py-2">
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {criteria.map((rowC, i) => (
-                <tr key={rowC} className="border-t border-white/5">
-                  <td className="px-3 py-2 font-medium">{rowC}</td>
-                  {criteria.map((colC, j) => {
-                    if (i === j) {
-                      return (
-                        <td key={colC} className="px-3 py-2 text-white/40">
-                          1
-                        </td>
-                      );
-                    }
-                    if (i > j) {
-                      return (
-                        <td key={colC} className="px-3 py-2 text-white/40">
-                          {matrix[i][j].toFixed(2)}
-                        </td>
-                      );
-                    }
-                    return (
-                      <td key={colC} className="px-3 py-2">
-                        <select
-                          className="rounded border border-white/10 bg-rail px-2 py-1 text-xs"
-                          value={matrix[i][j]}
-                          onChange={(e) =>
-                            setCell(i, j, parseFloat(e.target.value))
-                          }
-                        >
-                          {SAATY_SCALE.map((s) => (
-                            <option key={s.value} value={s.value}>
-                              {s.value}× {s.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+          {SQUAD_PHILOSOPHIES.map((p) => {
+            const active = activePhilosophy === p.key;
+            return (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => void onApplyPhilosophy(p)}
+                disabled={busy}
+                className={`rounded-lg border p-4 text-left transition disabled:opacity-60 ${
+                  active
+                    ? "border-accent bg-accent/10"
+                    : "border-white/10 bg-white/5 hover:border-white/30"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">{p.label}</div>
+                  {active && (
+                    <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-accent">
+                      active
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 text-xs text-white/60">{p.tagline}</div>
+                <div className="mt-2 text-xs text-white/50">{p.summary}</div>
+              </button>
+            );
+          })}
         </div>
+
+        <details className="mt-6 rounded border border-white/10 bg-white/5">
+          <summary className="cursor-pointer list-none px-4 py-3 text-xs font-medium text-white/70 hover:text-white">
+            Analyst view — edit the AHP pairwise matrix directly
+          </summary>
+          <div className="border-t border-white/10 p-4">
+            <p className="text-xs text-white/50">
+              For each pair, how strongly does row dominate column? 1=equal,
+              3=moderate, 5=strong, 7=very strong, 9=extreme. Reciprocals
+              auto-fill. Editing a cell clears the active philosophy so you
+              know the matrix is now custom.
+            </p>
+            <div className="mt-4 overflow-x-auto rounded border border-white/10">
+              <table className="min-w-full text-sm">
+                <thead className="bg-white/5 text-left text-white/60">
+                  <tr>
+                    <th className="px-3 py-2"></th>
+                    {criteria.map((c) => (
+                      <th key={c} className="px-3 py-2">
+                        {c}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {criteria.map((rowC, i) => (
+                    <tr key={rowC} className="border-t border-white/5">
+                      <td className="px-3 py-2 font-medium">{rowC}</td>
+                      {criteria.map((colC, j) => {
+                        if (i === j) {
+                          return (
+                            <td key={colC} className="px-3 py-2 text-white/40">
+                              1
+                            </td>
+                          );
+                        }
+                        if (i > j) {
+                          return (
+                            <td key={colC} className="px-3 py-2 text-white/40">
+                              {matrix[i][j].toFixed(2)}
+                            </td>
+                          );
+                        }
+                        return (
+                          <td key={colC} className="px-3 py-2">
+                            <select
+                              className="rounded border border-white/10 bg-rail px-2 py-1 text-xs"
+                              value={matrix[i][j]}
+                              onChange={(e) => {
+                                setCell(i, j, parseFloat(e.target.value));
+                                setActivePhilosophy(null);
+                              }}
+                            >
+                              {SAATY_SCALE.map((s) => (
+                                <option key={s.value} value={s.value}>
+                                  {s.value}× {s.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
 
         <div className="mt-6 flex flex-wrap items-end gap-4 text-sm">
           <label className="flex flex-col">
@@ -319,7 +412,11 @@ export default function SquadPage() {
             disabled={busy}
             className="rounded bg-accent/20 px-4 py-2 font-medium text-accent hover:bg-accent/30 disabled:opacity-50"
           >
-            {busy ? "solving…" : "Compute weights & optimize squad"}
+            {busy
+              ? "solving…"
+              : activePhilosophy
+                ? "Re-optimize with current budget / caps"
+                : "Compute weights & optimize squad"}
           </button>
         </div>
 

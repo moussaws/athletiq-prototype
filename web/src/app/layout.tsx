@@ -10,12 +10,14 @@ export const metadata: Metadata = {
 
 const NAV = [
   { href: "/", label: "Overview" },
-  { href: "/players", label: "Players" },
-  { href: "/scouting", label: "Scouting" },
+  { href: "/demo", label: "Guided tour" },
+  { href: "/matches", label: "Matches" },
+  { href: "/recruit", label: "Recruit" },
   { href: "/squad", label: "Squad" },
+  { href: "/scouting", label: "Scouting" },
+  { href: "/players", label: "Players" },
   { href: "/metrics", label: "Metrics" },
   { href: "/cv", label: "Tape view" },
-  { href: "/matches", label: "Matches" },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

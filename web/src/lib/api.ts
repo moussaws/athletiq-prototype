@@ -264,6 +264,43 @@ export type SavedSquad = {
   created_at: string;
 };
 
+export type PlaystyleInfo = {
+  key: string;
+  label: string;
+  description: string;
+  criteria: string[];
+  weights: number[];
+};
+
+export type PlaystyleCatalog = {
+  playstyles: PlaystyleInfo[];
+};
+
+export type RecruitCandidate = {
+  player_id: string;
+  name: string;
+  position: string;
+  nationality: string;
+  age: number;
+  market_value_m: number;
+  is_foreign: boolean;
+  fit_score: number;
+  fit_summary: string;
+  top_trait: string;
+  top_trait_value: number;
+};
+
+export type RecruitResponse = {
+  position: string;
+  playstyle: string;
+  playstyle_label: string;
+  criteria: string[];
+  weights: number[];
+  candidates: RecruitCandidate[];
+  pool_size: number;
+  headline: string;
+};
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(`${API_BASE}${path}`, {
     ...init,
