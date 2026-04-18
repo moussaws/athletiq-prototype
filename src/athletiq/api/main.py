@@ -10,11 +10,13 @@ from athletiq.api.routes import (
     ahp_bip,
     cv,
     metrics,
+    persistence,
     pitch_control,
     players,
     scouting,
     statsbomb,
 )
+from athletiq.db import init_db
 
 app = FastAPI(
     title="AthletIQ Prototype API",
@@ -34,6 +36,11 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def _startup() -> None:
+    init_db()
+
+
 @app.get("/health", tags=["meta"])
 def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
@@ -44,5 +51,6 @@ app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(pitch_control.router, prefix="/api/pitch-control", tags=["pitch-control"])
 app.include_router(scouting.router, prefix="/api/scouting", tags=["scouting"])
 app.include_router(ahp_bip.router, prefix="/api/squad", tags=["squad"])
+app.include_router(persistence.router, prefix="/api/squad", tags=["squad"])
 app.include_router(cv.router, prefix="/api/cv", tags=["cv"])
 app.include_router(statsbomb.router, prefix="/api/statsbomb", tags=["statsbomb"])

@@ -86,6 +86,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["N802", "N803", "N806"]
 "src/athletiq/metrics/**" = ["N803", "N806"]  # paper uses math symbols
+"src/athletiq/api/**" = ["B008"]  # FastAPI's Depends() is meant to be a default
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
