@@ -18,16 +18,22 @@ export default async function SimilarPage({
   let style: PlayerStyleResponse | null = null;
   let error: string | null = null;
   try {
-    const [similar, player, styleRes] = await Promise.all([
+    const [similar, player] = await Promise.all([
       api<SimilarityResponse>(`/api/scouting/similar/${params.id}?k=10`),
       api<Player>(`/api/players/${params.id}`),
-      api<PlayerStyleResponse>(`/api/scouting/style/${params.id}`),
     ]);
     data = similar;
     query = player;
-    style = styleRes;
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
+  }
+  // Style is a presentation-only add-on; a failure here must NOT wipe out
+  // the similar-profiles table or the player header. Fetch it separately so
+  // the {style && ...} gate in the JSX can degrade gracefully.
+  try {
+    style = await api<PlayerStyleResponse>(`/api/scouting/style/${params.id}`);
+  } catch {
+    style = null;
   }
 
   if (error) {
