@@ -58,7 +58,9 @@ function useCohort(): CohortProvenance | null {
 function CohortBadge({ meta }: { meta: CohortProvenance | null }) {
   const source = meta?.provenance?.source ?? "";
   const isReal = source.toLowerCase().startsWith("fbref");
-  const label = isReal ? "FBRef Big-5 · 2023-24" : "Synthetic cohort";
+  const label = isReal
+    ? `FBRef Big-5 · ${meta?.provenance?.season ?? "2023-24"}`
+    : "Synthetic cohort";
   const n = meta?.total ?? (isReal ? 816 : 240);
   return (
     <div
