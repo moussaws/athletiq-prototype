@@ -159,6 +159,38 @@ export type StatsBombMatchCohortResponse = {
   imputed_features: string[];
 };
 
+export type TopPerformer = {
+  role: string;
+  player_id: string;
+  name: string;
+  position: string;
+  metric_label: string;
+  value: number;
+  verdict: string;
+};
+
+export type TeamSummary = {
+  team: string;
+  players_count: number;
+  total_passes: number;
+  total_shots: number;
+  total_take_ons: number;
+  total_defensive_actions: number;
+  total_xt_carry: number;
+  summary: string;
+  top_performers: TopPerformer[];
+};
+
+export type MatchNarrativeResponse = {
+  match_id: number;
+  home_team: string;
+  away_team: string;
+  score: string;
+  headline: string;
+  teams: TeamSummary[];
+  imputed_features: string[];
+};
+
 export type DDILeaderboardRow = {
   player_id: string;
   name: string;

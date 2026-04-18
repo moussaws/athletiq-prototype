@@ -22,13 +22,13 @@ const CARDS = [
     href: "/players",
   },
   {
-    title: "Pillar C — CV pipeline",
-    body: "Upload a broadcast MP4 to run YOLOv10 + ByteTrack, then Huber-refined homography to pitch coordinates.",
+    title: "Tape view — from footage to pitch",
+    body: "Drop a single-camera clip in and see your players projected onto a 105×68 m pitch: shape, compactness, horizontal spread.",
     href: "/cv",
   },
   {
-    title: "Matches (StatsBomb open data)",
-    body: "Browse real competitions and matches. Every player's AthletIQ feature profile is aggregated live from StatsBomb events.",
+    title: "Match browser (real open-data matches)",
+    body: "Pick a real match from StatsBomb open data and get a coach-facing narrative: who dominated, who did what, plus raw event totals in analyst view.",
     href: "/matches",
   },
 ];
