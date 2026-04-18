@@ -7,6 +7,7 @@ import {
   type TeamSummary,
   type TopPerformer,
 } from "@/lib/api";
+import { VAEPPanel } from "./VAEPPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -227,6 +228,8 @@ export default async function MatchPage({
               <TeamCard key={t.team} team={t} />
             ))}
           </div>
+
+          <VAEPPanel matchId={params.match_id} />
 
           <details className="mt-8 rounded border border-white/10 bg-white/[0.02] p-4">
             <summary className="cursor-pointer select-none text-sm font-medium text-white/80">
