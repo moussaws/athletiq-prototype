@@ -14,6 +14,7 @@ const NAV = [
   { href: "/scouting", label: "Scouting" },
   { href: "/squad", label: "Squad" },
   { href: "/metrics", label: "Metrics" },
+  { href: "/cv", label: "CV pipeline" },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

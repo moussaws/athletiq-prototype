@@ -77,6 +77,29 @@ export type SquadResponse = {
   foreign_count: number;
 };
 
+export type CVCapabilities = {
+  cv_available: boolean;
+  reason: string | null;
+};
+
+export type CVDetection = {
+  frame: number;
+  track_id: number;
+  cls: number;
+  conf: number;
+  bbox_xyxy: [number, number, number, number] | number[];
+  foot_xy: [number, number] | number[];
+  pitch_xy: [number, number] | number[] | null;
+};
+
+export type CVAnalysisResponse = {
+  fps: number;
+  width: number;
+  height: number;
+  n_detections: number;
+  detections: CVDetection[];
+};
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(`${API_BASE}${path}`, {
     ...init,
