@@ -29,6 +29,8 @@ from athletiq.scouting.waspas import normalize_benefit, waspas_scores
 def _apply_source(args: argparse.Namespace) -> None:
     if getattr(args, "synthetic", False):
         os.environ["ATHLETIQ_COHORT_SOURCE"] = "synthetic"
+    else:
+        os.environ.pop("ATHLETIQ_COHORT_SOURCE", None)
     reset_store()
 
 
