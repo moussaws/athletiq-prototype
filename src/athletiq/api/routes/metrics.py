@@ -168,7 +168,7 @@ def ddi_leaderboard(
     top = match.leaderboard[0] if match.leaderboard else None
     if top is not None and top.ddi_m2 > 0:
         headline = (
-            f"{top.name} ({top.position}) created the most dangerous space "
+            f"{top.name} created the most dangerous space "
             f"({top.ddi_m2:.0f} m²) — {describe_ddi(top.ddi_m2, top.actions).lower()}"
         )
     else:
