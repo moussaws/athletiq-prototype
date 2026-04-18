@@ -52,3 +52,8 @@ Thumbs.db
 
 # Docker
 .docker-data/
+
+# Local SQLite DB (default DATABASE_URL target)
+*.db
+*.sqlite
+*.sqlite3

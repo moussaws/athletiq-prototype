@@ -176,6 +176,35 @@ export type DDILeaderboardResponse = {
   items: DDILeaderboardRow[];
 };
 
+export type AhpPreference = {
+  id: number;
+  name: string;
+  criteria: string[];
+  pairwise_matrix: number[][];
+  weights: number[];
+  consistency_ratio: number;
+  is_consistent: boolean;
+  created_at: string;
+};
+
+export type SavedSquad = {
+  id: number;
+  name: string;
+  preference_id: number | null;
+  criteria: string[];
+  weights: number[];
+  formation: Record<string, number>;
+  budget: number;
+  foreign_max: number;
+  assignments: SquadAssignment[];
+  total_score: number;
+  squad_gap_position: string | null;
+  squad_gap_delta: number;
+  budget_used: number;
+  foreign_count: number;
+  created_at: string;
+};
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(`${API_BASE}${path}`, {
     ...init,
