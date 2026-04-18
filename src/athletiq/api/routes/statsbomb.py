@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from athletiq.data import statsbomb as sb_mod
+from athletiq.insights import build_match_narrative
 
 router = APIRouter()
 
@@ -75,6 +76,38 @@ class MatchCohortResponse(BaseModel):
     away_team: str
     score: str
     players: list[MatchPlayerOut]
+    imputed_features: list[str]
+
+
+class TopPerformerOut(BaseModel):
+    role: str
+    player_id: str
+    name: str
+    position: str
+    metric_label: str
+    value: float
+    verdict: str
+
+
+class TeamSummaryOut(BaseModel):
+    team: str
+    players_count: int
+    total_passes: float
+    total_shots: float
+    total_take_ons: float
+    total_defensive_actions: float
+    total_xt_carry: float
+    summary: str
+    top_performers: list[TopPerformerOut]
+
+
+class MatchNarrativeResponse(BaseModel):
+    match_id: int
+    home_team: str
+    away_team: str
+    score: str
+    headline: str
+    teams: list[TeamSummaryOut]
     imputed_features: list[str]
 
 
@@ -168,6 +201,90 @@ def match_cohort(match_id: int) -> MatchCohortResponse:
         away_team=away,
         score=score,
         players=out_players,
+        imputed_features=_IMPUTED_FEATURES,
+    )
+
+
+@router.get("/match/{match_id}/insights", response_model=MatchNarrativeResponse)
+def match_insights(match_id: int) -> MatchNarrativeResponse:
+    """Coach-facing narrative for a StatsBomb match.
+
+    Returns the same event-derived features as ``/match/{id}`` but
+    re-shaped into a story: headline, per-team totals + one-sentence
+    summary, top performers by role (creator / ball carrier / finisher /
+    defensive worker / passer). The raw per-player table is still
+    available via the ``/match/{id}`` endpoint for analyst view.
+    """
+    if not sb_mod.STATSBOMB_AVAILABLE:
+        raise HTTPException(status_code=503, detail="statsbombpy not installed")
+    try:
+        players = sb_mod.load_match_players(match_id)
+        ms_for_meta = _resolve_match_meta(match_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"StatsBomb upstream error: {e}") from e
+    if not players:
+        raise HTTPException(status_code=404, detail=f"no events for match {match_id}")
+
+    home = ms_for_meta.home_team if ms_for_meta else ""
+    away = ms_for_meta.away_team if ms_for_meta else ""
+    score = f"{ms_for_meta.home_score}-{ms_for_meta.away_score}" if ms_for_meta else ""
+
+    out_players: list[MatchPlayerOut] = []
+    for p in players:
+        out_players.append(
+            MatchPlayerOut(
+                player_id=p.player_id,
+                name=p.name,
+                position=p.position,
+                team=p.nationality,
+                age=p.age,
+                market_value_m=p.market_value_m,
+                passes_completed=p.features.get("passes_completed", 0.0),
+                take_ons=p.features.get("take_ons", 0.0),
+                shots=p.features.get("shots", 0.0),
+                tackles=p.features.get("tackles", 0.0),
+                interceptions=p.features.get("interceptions", 0.0),
+                xt_carry=p.features.get("xt_carry", 0.0),
+            )
+        )
+    narrative = build_match_narrative(
+        match_id=match_id,
+        home_team=home,
+        away_team=away,
+        score=score,
+        players=out_players,
+    )
+    return MatchNarrativeResponse(
+        match_id=narrative.match_id,
+        home_team=narrative.home_team,
+        away_team=narrative.away_team,
+        score=narrative.score,
+        headline=narrative.headline,
+        teams=[
+            TeamSummaryOut(
+                team=t.team,
+                players_count=t.players_count,
+                total_passes=t.total_passes,
+                total_shots=t.total_shots,
+                total_take_ons=t.total_take_ons,
+                total_defensive_actions=t.total_defensive_actions,
+                total_xt_carry=t.total_xt_carry,
+                summary=t.summary,
+                top_performers=[
+                    TopPerformerOut(
+                        role=perf.role,
+                        player_id=perf.player_id,
+                        name=perf.name,
+                        position=perf.position,
+                        metric_label=perf.metric_label,
+                        value=perf.value,
+                        verdict=perf.verdict,
+                    )
+                    for perf in t.top_performers
+                ],
+            )
+            for t in narrative.teams
+        ],
         imputed_features=_IMPUTED_FEATURES,
     )
 

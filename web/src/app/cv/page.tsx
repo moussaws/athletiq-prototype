@@ -163,12 +163,13 @@ export default function CVPage() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-3xl font-semibold">Pillar C — CV pipeline</h1>
+      <h1 className="text-3xl font-semibold">Tape view — from footage to pitch</h1>
       <p className="mt-2 text-white/60">
-        Upload a short broadcast clip to run YOLOv10 detection + ByteTrack
-        tracking. If you supply pitch-keypoint correspondences, the
-        Huber-refined homography (Eq. 12) projects every detection&apos;s
-        foot-point onto a 105×68 m pitch.
+        Drop in a short broadcast clip. We detect every player, track them
+        across frames, and (if you hand us four corners of the pitch) project
+        them onto a real 105×68 m pitch so you can see where your side
+        actually lived on the field — compactness, shape, horizontal spread.
+        Runs with a single camera, no tracking hardware required.
       </p>
 
       <div className="mt-6">{capsBanner}</div>
@@ -257,8 +258,16 @@ export default function CVPage() {
 
       {analysis && (
         <div className="mt-6 space-y-6">
-          <div className="rounded border border-white/10 bg-white/5 p-5 text-sm">
-            <div className="flex flex-wrap gap-6">
+          <TapeReadout
+            analysis={analysis}
+            tracks={tracks.size}
+            pitchPoints={pitchPoints}
+          />
+          <details className="rounded border border-white/10 bg-white/[0.02] p-5 text-sm">
+            <summary className="cursor-pointer select-none font-medium text-white/80">
+              Analyst view · raw detection stats
+            </summary>
+            <div className="mt-4 flex flex-wrap gap-6">
               <Stat label="fps" value={analysis.fps.toFixed(1)} />
               <Stat
                 label="resolution"
@@ -277,7 +286,7 @@ export default function CVPage() {
                 }`}
               />
             </div>
-          </div>
+          </details>
 
           {pitchPoints.length > 0 && (
             <div className="rounded border border-white/10 bg-white/5 p-4">
@@ -357,6 +366,108 @@ function Stat({ label, value }: { label: string; value: string | number }) {
         {label}
       </div>
       <div className="mt-0.5 text-lg font-medium tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+type PitchPoint = { x: number; y: number; trackId: number; cls: number };
+
+function TapeReadout({
+  analysis,
+  tracks,
+  pitchPoints,
+}: {
+  analysis: CVAnalysisResponse;
+  tracks: number;
+  pitchPoints: PitchPoint[];
+}) {
+  const frames = Math.max(1, analysis.n_detections > 0
+    ? Math.max(...analysis.detections.map((d) => d.frame)) + 1
+    : 1);
+  const avgOnScreen = analysis.n_detections / frames;
+  // Compactness: 105×68 m pitch is ~7140 m² of area; an actively playing
+  // team tends to occupy ~30–60 m of that at a time. We compute it from
+  // the spread of foot-points that actually landed inside the pitch.
+  const inside = pitchPoints.filter(
+    (p) => p.x >= 0 && p.x <= 105 && p.y >= 0 && p.y <= 68,
+  );
+  const hasProjection = pitchPoints.length > 0;
+  let horizSpread = 0;
+  let vertSpread = 0;
+  let insidePct = 0;
+  if (inside.length > 1) {
+    const xs = inside.map((p) => p.x);
+    const ys = inside.map((p) => p.y);
+    horizSpread = Math.max(...xs) - Math.min(...xs);
+    vertSpread = Math.max(...ys) - Math.min(...ys);
+    insidePct = Math.round((inside.length / pitchPoints.length) * 100);
+  }
+
+  const lines: string[] = [];
+  lines.push(
+    `Tracked ${tracks} distinct figure${tracks === 1 ? "" : "s"} across ${frames} frame${frames === 1 ? "" : "s"} — on average ${avgOnScreen.toFixed(1)} on screen.`,
+  );
+  if (hasProjection && inside.length > 1) {
+    const depthVerdict =
+      vertSpread < 30
+        ? "a very compact block defensively"
+        : vertSpread < 50
+          ? "a balanced vertical shape"
+          : "a stretched shape with defenders and attackers far apart";
+    const widthVerdict =
+      horizSpread < 30
+        ? "narrow horizontally — touchlines under-used"
+        : horizSpread < 55
+          ? "reasonable horizontal spread"
+          : "full width of the pitch used";
+    lines.push(
+      `On the pitch the side showed ${depthVerdict} (≈${vertSpread.toFixed(0)} m deep) and ${widthVerdict} (≈${horizSpread.toFixed(0)} m wide).`,
+    );
+    if (insidePct < 60) {
+      lines.push(
+        `Heads-up: only ${insidePct}% of foot-points landed inside the 105×68 m pitch — your keypoint calibration may be off, so read the compactness numbers as indicative only.`,
+      );
+    }
+  } else if (!hasProjection) {
+    lines.push(
+      "Tick the pitch-projection option and supply four corner keypoints to turn these detections into a bird's-eye pitch readout (compactness, width, depth).",
+    );
+  }
+
+  return (
+    <div className="rounded border border-emerald-500/30 bg-emerald-500/10 p-5 text-sm text-emerald-100">
+      <div className="font-medium">Coach readout</div>
+      <div className="mt-2 space-y-2">
+        {lines.map((l, i) => (
+          <p key={i}>{l}</p>
+        ))}
+      </div>
+      {hasProjection && inside.length > 1 && (
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <ReadoutStat label="On screen" value={avgOnScreen.toFixed(1)} />
+          <ReadoutStat
+            label="Shape depth"
+            value={`${vertSpread.toFixed(0)} m`}
+          />
+          <ReadoutStat
+            label="Shape width"
+            value={`${horizSpread.toFixed(0)} m`}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReadoutStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded bg-black/30 px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-emerald-200/60">
+        {label}
+      </div>
+      <div className="mt-0.5 text-base font-medium tabular-nums text-emerald-50">
+        {value}
+      </div>
     </div>
   );
 }
