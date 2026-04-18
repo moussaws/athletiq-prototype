@@ -82,7 +82,7 @@ def describe_metric(
     phrase = _FEATURE_PHRASE.get(name, name.replace("_", " "))
     if pool:
         p, band = percentile_verdict(value, pool)
-        pct_str = f"top {round(100 - p)}%" if p >= 60 else f"bottom {round(p)}%"
+        pct_str = f"top {round(100 - p)}%" if p >= 50 else f"bottom {round(p)}%"
         headline = f"{phrase.capitalize()}: {band} — {pct_str} of peers ({value:.2f}{unit})."
         return MetricVerdict(headline=headline, value=value, percentile=p, band=band)
     headline = f"{phrase.capitalize()}: {value:.2f}{unit}."
