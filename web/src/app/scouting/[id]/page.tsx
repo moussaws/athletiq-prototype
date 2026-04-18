@@ -1,19 +1,23 @@
 import Link from "next/link";
-import { api, type Player, type SimilarPlayer } from "@/lib/api";
+import { api, type Player, type SimilarityResponse } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
-
-type SimilarResponse = { query: Player; results: SimilarPlayer[] };
 
 export default async function SimilarPage({
   params,
 }: {
   params: { id: string };
 }) {
-  let data: SimilarResponse | null = null;
+  let data: SimilarityResponse | null = null;
+  let query: Player | null = null;
   let error: string | null = null;
   try {
-    data = await api<SimilarResponse>(`/api/scouting/similar/${params.id}?k=10`);
+    const [similar, player] = await Promise.all([
+      api<SimilarityResponse>(`/api/scouting/similar/${params.id}?k=10`),
+      api<Player>(`/api/players/${params.id}`),
+    ]);
+    data = similar;
+    query = player;
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
@@ -31,7 +35,6 @@ export default async function SimilarPage({
     );
   }
 
-  const query = data?.query;
   const results = data?.results ?? [];
 
   return (
@@ -52,8 +55,8 @@ export default async function SimilarPage({
 
       <h2 className="mt-8 text-lg font-medium">Similar profiles</h2>
       <p className="mt-1 text-sm text-white/50">
-        Ranked by hybrid distance λ·Euclidean + (1−λ)·(1−cos), λ=0.5, in the
-        reduced PCA space.
+        Ranked by hybrid distance λ·Euclidean + (1−λ)·(1−cos), λ=
+        {data?.lam.toFixed(2) ?? "0.50"}, in the reduced PCA space.
       </p>
       <div className="mt-4 overflow-hidden rounded border border-white/10">
         <table className="w-full text-sm">

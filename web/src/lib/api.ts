@@ -11,6 +11,7 @@ export type Player = {
   age: number;
   market_value_m: number;
   is_foreign: boolean;
+  features?: Record<string, number>;
 };
 
 export type PlayersListResponse = {
@@ -22,17 +23,24 @@ export type SimilarPlayer = {
   player_id: string;
   name: string;
   position: string;
+  nationality: string;
+  age: number;
+  market_value_m: number;
   similarity: number;
   euclidean: number;
   cosine_similarity: number;
 };
 
+export type SimilarityResponse = {
+  query_player_id: string;
+  lam: number;
+  results: SimilarPlayer[];
+};
+
 export type PitchControlResponse = {
   phi: number[][];
-  x: number[];
-  y: number[];
-  mean: number;
-  grid_shape: [number, number];
+  xs: number[];
+  ys: number[];
 };
 
 export type PressureResponse = {
@@ -43,28 +51,30 @@ export type PressureResponse = {
 };
 
 export type AhpResponse = {
+  criteria: string[];
   weights: number[];
   consistency_ratio: number;
   is_consistent: boolean;
-  lambda_max: number;
 };
 
 export type SquadAssignment = {
+  position: string;
   player_id: string;
   name: string;
-  position: string;
-  score: number;
+  nationality: string;
+  age: number;
   market_value_m: number;
   is_foreign: boolean;
+  positional_fit: number;
 };
 
 export type SquadResponse = {
-  assignments: Record<string, string>;
-  lineup: SquadAssignment[];
+  assignments: SquadAssignment[];
   total_score: number;
+  squad_gap_position: string | null;
+  squad_gap_delta: number;
   budget_used: number;
   foreign_count: number;
-  squad_gap: { position: string; delta: number } | null;
 };
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {

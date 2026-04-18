@@ -12,6 +12,15 @@ export default async function MetricsPage() {
     error = e instanceof Error ? e.message : String(e);
   }
 
+  const rows = phi?.phi.length ?? 0;
+  const cols = phi && rows > 0 ? phi.phi[0].length : 0;
+  let mean = 0;
+  if (phi && rows > 0 && cols > 0) {
+    let sum = 0;
+    for (const row of phi.phi) for (const v of row) sum += v;
+    mean = sum / (rows * cols);
+  }
+
   return (
     <div className="max-w-4xl">
       <h1 className="text-3xl font-semibold">Context-aware metrics</h1>
@@ -32,12 +41,11 @@ export default async function MetricsPage() {
           <div className="flex items-center justify-between text-sm">
             <div className="font-medium">Pitch control Φ</div>
             <div className="text-xs text-white/50">
-              grid {phi.grid_shape[0]}×{phi.grid_shape[1]} · mean{" "}
-              {phi.mean.toFixed(3)}
+              grid {rows}×{cols} · mean {mean.toFixed(3)}
             </div>
           </div>
           <div className="mt-4">
-            <PitchHeatmap phi={phi.phi} x={phi.x} y={phi.y} />
+            <PitchHeatmap phi={phi.phi} xs={phi.xs} ys={phi.ys} />
           </div>
           <div className="mt-2 text-xs text-white/50">
             Dark green = defensive dominance (0). Bright green = attacking

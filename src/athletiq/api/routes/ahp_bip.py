@@ -59,6 +59,7 @@ class AssignmentOut(BaseModel):
     nationality: str
     age: int
     market_value_m: float
+    is_foreign: bool
     positional_fit: float
 
 
@@ -135,6 +136,7 @@ def compute_squad(req: BIPRequest) -> BIPResponse:
                 nationality=p.nationality,
                 age=p.age,
                 market_value_m=p.market_value_m,
+                is_foreign=p.is_foreign,
                 positional_fit=float(Y[j, pi]),
             )
         )
