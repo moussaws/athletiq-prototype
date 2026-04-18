@@ -1,4 +1,4 @@
-const API_BASE =
+export const API_BASE =
   typeof window === "undefined"
     ? process.env.ATHLETIQ_API_URL ?? "http://localhost:8000"
     : "/backend";

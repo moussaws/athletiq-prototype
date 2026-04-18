@@ -17,6 +17,7 @@ from athletiq.api.routes import (
     recruit,
     scouting,
     statsbomb,
+    vaep,
 )
 from athletiq.db import init_db
 
@@ -58,3 +59,4 @@ app.include_router(cv.router, prefix="/api/cv", tags=["cv"])
 app.include_router(cv_eval.router, prefix="/api/cv/eval", tags=["cv"])
 app.include_router(statsbomb.router, prefix="/api/statsbomb", tags=["statsbomb"])
 app.include_router(recruit.router, prefix="/api/recruit", tags=["recruit"])
+app.include_router(vaep.router, prefix="/api/vaep", tags=["vaep"])
