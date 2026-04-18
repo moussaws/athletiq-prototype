@@ -40,6 +40,7 @@ export default function CVPage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [useHomography, setUseHomography] = useState(false);
+  const [dynamicHomography, setDynamicHomography] = useState(false);
   const [keypointsJson, setKeypointsJson] = useState(DEFAULT_KEYPOINTS);
   const [maxFrames, setMaxFrames] = useState(30);
   const [conf, setConf] = useState(0.25);
@@ -100,7 +101,10 @@ export default function CVPage() {
       form.append("video", file);
       form.append("max_frames", String(maxFrames));
       form.append("conf", String(conf));
-      if (useHomography) form.append("keypoints_json", keypointsJson);
+      if (useHomography) {
+        form.append("keypoints_json", keypointsJson);
+        form.append("dynamic_homography", String(dynamicHomography));
+      }
 
       const r = await fetch(`${API_BASE}/api/cv/analyze`, {
         method: "POST",
@@ -225,13 +229,24 @@ export default function CVPage() {
             Project foot-points to pitch coordinates (needs keypoints)
           </label>
           {useHomography && (
-            <textarea
-              value={keypointsJson}
-              onChange={(e) => setKeypointsJson(e.target.value)}
-              rows={10}
-              spellCheck={false}
-              className="mt-2 block w-full rounded border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-white/80"
-            />
+            <>
+              <label className="mt-2 inline-flex items-center gap-2 text-white/70">
+                <input
+                  type="checkbox"
+                  checked={dynamicHomography}
+                  onChange={(e) => setDynamicHomography(e.target.checked)}
+                />
+                Dynamic per-frame homography (track keypoints with LK on
+                camera pan/zoom)
+              </label>
+              <textarea
+                value={keypointsJson}
+                onChange={(e) => setKeypointsJson(e.target.value)}
+                rows={10}
+                spellCheck={false}
+                className="mt-2 block w-full rounded border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-white/80"
+              />
+            </>
           )}
         </div>
 
@@ -286,6 +301,18 @@ export default function CVPage() {
                     : ""
                 }`}
               />
+              {analysis.dynamic_homography && (
+                <>
+                  <Stat
+                    label="per-frame H"
+                    value={`${analysis.n_frames_with_homography ?? 0} frames`}
+                  />
+                  <Stat
+                    label="active keypoints"
+                    value={`${analysis.min_active_keypoints ?? 0}–${analysis.max_active_keypoints ?? 0}`}
+                  />
+                </>
+              )}
             </div>
           </details>
 
