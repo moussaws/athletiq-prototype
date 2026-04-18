@@ -59,7 +59,7 @@ export default async function MatchesPage({
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-3xl font-semibold">Matches (StatsBomb open data)</h1>
+      <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">Matches (StatsBomb open data)</h1>
       <p className="mt-2 text-white/60">
         Browse the full open dataset by competition and season. Click a
         competition to see every match; click a match to see both teams&apos;

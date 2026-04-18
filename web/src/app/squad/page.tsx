@@ -274,7 +274,7 @@ export default function SquadPage() {
         <PresetFromUrl onPreset={handlePresetFromUrl} />
       </Suspense>
       <div>
-        <h1 className="text-3xl font-semibold">Squad optimizer</h1>
+        <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">Squad optimizer</h1>
         <p className="mt-2 text-white/60">
           Pick your footballing philosophy and we&apos;ll weight the criteria
           for you, solve the roster optimization, and name the XI. The raw AHP

@@ -36,7 +36,7 @@ export default async function ScoutingPage({
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-3xl font-semibold">AI scouting</h1>
+      <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">AI scouting</h1>
       <p className="mt-2 text-white/70">
         Find a replacement, a depth option, or a complementary profile. Every
         player is auto-labelled with a tactical archetype (Regista, Box-to-Box

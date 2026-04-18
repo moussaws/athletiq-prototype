@@ -168,7 +168,7 @@ export default function CVPage() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-3xl font-semibold">Tape view — from footage to pitch</h1>
+      <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">Tape view — from footage to pitch</h1>
       <p className="mt-2 text-white/60">
         Drop in a short broadcast clip. We detect every player, track them
         across frames, and (if you hand us four corners of the pitch) project

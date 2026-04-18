@@ -38,7 +38,7 @@ export default async function MetricsPage() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-3xl font-semibold">Context-aware metrics</h1>
+      <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">Context-aware metrics</h1>
       <p className="mt-2 text-white/60">
         Pitch Control surface from the demo snapshot (11v11, attacking team in
         the final third). Φ(x) ∈ [0, 1] measures the probability that the
