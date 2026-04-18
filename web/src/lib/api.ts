@@ -166,6 +166,7 @@ export type DDILeaderboardRow = {
   ddi_m2: number;
   actions: number;
   avg_per_action: number;
+  verdict: string;
 };
 
 export type DDILeaderboardResponse = {
@@ -174,6 +175,32 @@ export type DDILeaderboardResponse = {
   tau: number;
   total_ddi_m2: number;
   items: DDILeaderboardRow[];
+  headline: string;
+};
+
+export type ArchetypeBucket = {
+  cluster_id: number;
+  size: number;
+  members: string[];
+  name: string;
+  description: string;
+  key_traits: string[];
+};
+
+export type ArchetypeResponse = {
+  position: string;
+  k: number;
+  silhouette: number;
+  buckets: ArchetypeBucket[];
+};
+
+export type PlayerStyleResponse = {
+  player_id: string;
+  position: string;
+  style: string;
+  archetype_name: string;
+  archetype_description: string;
+  archetype_key_traits: string[];
 };
 
 export type AhpPreference = {
