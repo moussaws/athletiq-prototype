@@ -12,6 +12,7 @@ const config: Config = {
           700: "#111a2e",
           600: "#18233d",
         },
+        rail: "#0b1220",
         pitch: {
           DEFAULT: "#0f2b1d",
           deep: "#0a1e14",
