@@ -6,6 +6,7 @@ import type {
   CVAnalysisResponse,
   CVCapabilities,
   CVDetection,
+  HOTAResponse,
 } from "@/lib/api";
 
 const API_BASE = "/backend";
@@ -302,6 +303,8 @@ export default function CVPage() {
             </div>
           )}
 
+          <HOTAEvalPanel caps={caps} />
+
           <div className="overflow-hidden rounded border border-white/10">
             <table className="w-full text-sm">
               <thead className="bg-white/5 text-left text-white/60">
@@ -466,6 +469,170 @@ function ReadoutStat({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div className="mt-0.5 text-base font-medium tabular-nums text-emerald-50">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function HOTAEvalPanel({ caps }: { caps: CVCapabilities | null }) {
+  const [video, setVideo] = useState<File | null>(null);
+  const [gt, setGt] = useState<File | null>(null);
+  const [maxFrames, setMaxFrames] = useState(30);
+  const [conf, setConf] = useState(0.25);
+  const [iou, setIou] = useState(0.5);
+  const [score, setScore] = useState<HOTAResponse | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const canSubmit =
+    !busy && !!video && !!gt && caps?.cv_available !== false;
+
+  async function run(e: React.FormEvent) {
+    e.preventDefault();
+    if (!video || !gt) return;
+    setBusy(true);
+    setErr(null);
+    setScore(null);
+    try {
+      const form = new FormData();
+      form.append("video", video);
+      form.append("gt", gt);
+      form.append("max_frames", String(maxFrames));
+      form.append("conf", String(conf));
+      form.append("iou", String(iou));
+      const r = await fetch(`${API_BASE}/api/cv/eval/hota`, {
+        method: "POST",
+        body: form,
+      });
+      if (!r.ok) {
+        const text = await r.text().catch(() => r.statusText);
+        throw new Error(`${r.status}: ${text}`);
+      }
+      setScore((await r.json()) as HOTAResponse);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <details className="rounded border border-white/10 bg-white/[0.02] p-5 text-sm">
+      <summary className="cursor-pointer select-none font-medium text-white/80">
+        Tracking-quality evaluation · HOTA · MOTA · IDF1
+      </summary>
+      <div className="mt-3 text-white/60">
+        Upload the same clip plus a MOTChallenge-format ground-truth file
+        (<code>frame,id,x,y,w,h,conf,...</code>) — we&apos;ll re-run the
+        pipeline and score it. A sample GT file lives at{" "}
+        <code>assets/tracking/sample_gt.txt</code>.
+      </div>
+      <form onSubmit={run} className="mt-4 grid gap-4 md:grid-cols-2">
+        <label className="block">
+          <span className="text-white/70">Clip (MP4)</span>
+          <input
+            type="file"
+            accept="video/mp4,video/*"
+            onChange={(e) => setVideo(e.target.files?.[0] ?? null)}
+            className="mt-1 block w-full text-white/80 file:mr-3 file:rounded file:border-0 file:bg-accent/20 file:px-3 file:py-1.5 file:text-accent hover:file:bg-accent/30"
+          />
+        </label>
+        <label className="block">
+          <span className="text-white/70">Ground truth (MOTChallenge .txt)</span>
+          <input
+            type="file"
+            accept=".txt,text/plain"
+            onChange={(e) => setGt(e.target.files?.[0] ?? null)}
+            className="mt-1 block w-full text-white/80 file:mr-3 file:rounded file:border-0 file:bg-accent/20 file:px-3 file:py-1.5 file:text-accent hover:file:bg-accent/30"
+          />
+        </label>
+        <label className="block">
+          <span className="text-white/70">Max frames</span>
+          <input
+            type="number"
+            min={1}
+            max={300}
+            value={maxFrames}
+            onChange={(e) => setMaxFrames(Number(e.target.value))}
+            className="mt-1 block w-full rounded border border-white/10 bg-rail px-3 py-1.5 text-white"
+          />
+        </label>
+        <label className="block">
+          <span className="text-white/70">Detection confidence</span>
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.05}
+            value={conf}
+            onChange={(e) => setConf(Number(e.target.value))}
+            className="mt-1 block w-full rounded border border-white/10 bg-rail px-3 py-1.5 text-white"
+          />
+        </label>
+        <label className="block">
+          <span className="text-white/70">IoU threshold α</span>
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.05}
+            value={iou}
+            onChange={(e) => setIou(Number(e.target.value))}
+            className="mt-1 block w-full rounded border border-white/10 bg-rail px-3 py-1.5 text-white"
+          />
+        </label>
+        <div className="flex items-end">
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="rounded bg-accent/20 px-4 py-1.5 text-accent hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy ? "scoring…" : "score tracking"}
+          </button>
+        </div>
+      </form>
+      {err && (
+        <div className="mt-4 rounded border border-red-500/40 bg-red-500/10 p-3 text-red-200">
+          {err}
+        </div>
+      )}
+      {score && (
+        <div className="mt-5 rounded border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-50">
+          <div className="text-sm font-medium">{score.verdict}</div>
+          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+            <HOTAStat label="HOTA" value={(score.hota * 100).toFixed(1)} />
+            <HOTAStat label="DetA" value={(score.deta * 100).toFixed(1)} />
+            <HOTAStat label="AssA" value={(score.assa * 100).toFixed(1)} />
+            <HOTAStat label="MOTA" value={(score.mota * 100).toFixed(1)} />
+            <HOTAStat label="IDF1" value={(score.idf1 * 100).toFixed(1)} />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-emerald-100/70">
+            <span>α = {score.alpha.toFixed(2)}</span>
+            <span>TP {score.tp}</span>
+            <span>FP {score.fp}</span>
+            <span>FN {score.fn}</span>
+            <span>ID sw {score.id_switches}</span>
+            <span>
+              GT {score.gt_boxes} / {score.n_gt_tracks} tracks
+            </span>
+            <span>
+              pred {score.pred_boxes} / {score.n_pred_tracks} tracks
+            </span>
+          </div>
+        </div>
+      )}
+    </details>
+  );
+}
+
+function HOTAStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded bg-black/30 px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-emerald-200/60">
+        {label}
+      </div>
+      <div className="mt-0.5 text-lg font-medium tabular-nums text-emerald-50">
         {value}
       </div>
     </div>

@@ -100,6 +100,24 @@ export type CVAnalysisResponse = {
   detections: CVDetection[];
 };
 
+export type HOTAResponse = {
+  hota: number;
+  deta: number;
+  assa: number;
+  mota: number;
+  idf1: number;
+  alpha: number;
+  tp: number;
+  fp: number;
+  fn: number;
+  id_switches: number;
+  gt_boxes: number;
+  pred_boxes: number;
+  n_gt_tracks: number;
+  n_pred_tracks: number;
+  verdict: string;
+};
+
 export type StatsBombCapabilities = {
   statsbomb_available: boolean;
   reason: string | null;
