@@ -2,24 +2,29 @@ import Link from "next/link";
 
 const CARDS = [
   {
-    title: "Pillar A — Context-aware metrics",
-    body: "Pressure field, PABR, pressure-weighted carry xT, Pitch Control surface, DDI. Equations 1–8.",
-    href: "/metrics",
+    title: "Guided tour",
+    body: "Three coach-level questions AthletIQ answers end-to-end — match debrief, scouting brief, pressing XI. Start here if you're new.",
+    href: "/demo",
   },
   {
-    title: "Pillar B — AI scouting",
-    body: "PCA → silhouette-K-Means archetypes, hybrid KNN retrieval, AHP + WASPAS + BIP roster optimization.",
-    href: "/scouting",
+    title: "Match debrief (real open-data matches)",
+    body: "Pick a real match from StatsBomb open data and get a coach-facing narrative: who dominated, who did what, plus raw event totals in Analyst view.",
+    href: "/matches",
   },
   {
-    title: "Squad optimizer",
-    body: "Build a pairwise AHP matrix, combine with WASPAS fitness, and solve the BIP for the optimal XI.",
+    title: "Recruit — coach brief",
+    body: "Describe the player you want in football language (role + style + caps). We translate it to the criteria and rank the cohort by fit.",
+    href: "/recruit",
+  },
+  {
+    title: "Squad optimizer — pick a philosophy",
+    body: "Press-heavy / Possession / Direct / Balanced preset → optimal XI on your budget. Raw AHP matrix is one click away in Analyst view.",
     href: "/squad",
   },
   {
-    title: "Player directory",
-    body: "240 synthetic players across 8 positions, with realistic position-specific feature archetypes.",
-    href: "/players",
+    title: "Scouting — archetypes & similar players",
+    body: "PCA → silhouette-K-Means archetypes (paper's labels: Deep-Lying Playmaker, Mezzala, etc.) + hybrid KNN retrieval.",
+    href: "/scouting",
   },
   {
     title: "Tape view — from footage to pitch",
@@ -27,9 +32,14 @@ const CARDS = [
     href: "/cv",
   },
   {
-    title: "Match browser (real open-data matches)",
-    body: "Pick a real match from StatsBomb open data and get a coach-facing narrative: who dominated, who did what, plus raw event totals in analyst view.",
-    href: "/matches",
+    title: "Context-aware metrics",
+    body: "Pressure field, PABR, pressure-weighted carry xT, Pitch Control surface, DDI leaderboard. Equations 1–9.",
+    href: "/metrics",
+  },
+  {
+    title: "Player directory",
+    body: "240 synthetic players across 8 positions, with realistic position-specific feature archetypes.",
+    href: "/players",
   },
 ];
 

@@ -13,6 +13,7 @@ from athletiq.api.routes import (
     persistence,
     pitch_control,
     players,
+    recruit,
     scouting,
     statsbomb,
 )
@@ -54,3 +55,4 @@ app.include_router(ahp_bip.router, prefix="/api/squad", tags=["squad"])
 app.include_router(persistence.router, prefix="/api/squad", tags=["squad"])
 app.include_router(cv.router, prefix="/api/cv", tags=["cv"])
 app.include_router(statsbomb.router, prefix="/api/statsbomb", tags=["statsbomb"])
+app.include_router(recruit.router, prefix="/api/recruit", tags=["recruit"])
