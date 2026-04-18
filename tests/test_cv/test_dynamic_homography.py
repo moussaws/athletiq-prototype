@@ -105,9 +105,7 @@ def test_tracker_coasts_below_four_active_keypoints() -> None:
     image_pts = np.array(
         [[100, 100], [620, 100], [620, 380], [100, 380], [360, 240]], dtype=np.float64
     )
-    pitch_pts = np.array(
-        [[0, 68], [105, 68], [105, 0], [0, 0], [52.5, 34]], dtype=np.float64
-    )
+    pitch_pts = np.array([[0, 68], [105, 68], [105, 0], [0, 0], [52.5, 34]], dtype=np.float64)
     kp = PitchKeypoints(image_pts=image_pts, pitch_pts=pitch_pts)
     tracker = DynamicHomographyTracker(kp)
     frame = _make_checkerboard()

@@ -15,6 +15,7 @@ keypoint detector supplies enough correspondences.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 
 import numpy as np
@@ -244,8 +245,6 @@ class DynamicHomographyTracker:
                 image_pts=self.active_image_pts.astype(np.float64),
                 pitch_pts=self.active_pitch_pts.astype(np.float64),
             )
-            try:
+            with contextlib.suppress(RuntimeError):
                 self._H_current = refine_homography_huber(kp, delta=self._huber_delta)
-            except RuntimeError:
-                pass
         return self._H_current
