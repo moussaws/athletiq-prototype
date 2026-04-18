@@ -100,6 +100,65 @@ export type CVAnalysisResponse = {
   detections: CVDetection[];
 };
 
+export type StatsBombCapabilities = {
+  statsbomb_available: boolean;
+  reason: string | null;
+};
+
+export type StatsBombCompetition = {
+  competition_id: number;
+  season_id: number;
+  country_name: string;
+  competition_name: string;
+  season_name: string;
+  competition_gender: string;
+};
+
+export type StatsBombCompetitionsResponse = {
+  items: StatsBombCompetition[];
+  total: number;
+};
+
+export type StatsBombMatch = {
+  match_id: number;
+  competition_id: number;
+  season_id: number;
+  match_date: string;
+  home_team: string;
+  away_team: string;
+  home_score: number;
+  away_score: number;
+};
+
+export type StatsBombMatchesResponse = {
+  items: StatsBombMatch[];
+  total: number;
+};
+
+export type StatsBombMatchPlayer = {
+  player_id: string;
+  name: string;
+  position: string;
+  team: string;
+  age: number;
+  market_value_m: number;
+  passes_completed: number;
+  take_ons: number;
+  shots: number;
+  tackles: number;
+  interceptions: number;
+  xt_carry: number;
+};
+
+export type StatsBombMatchCohortResponse = {
+  match_id: number;
+  home_team: string;
+  away_team: string;
+  score: string;
+  players: StatsBombMatchPlayer[];
+  imputed_features: string[];
+};
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(`${API_BASE}${path}`, {
     ...init,

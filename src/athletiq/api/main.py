@@ -6,7 +6,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from athletiq import __version__
-from athletiq.api.routes import ahp_bip, cv, metrics, pitch_control, players, scouting
+from athletiq.api.routes import (
+    ahp_bip,
+    cv,
+    metrics,
+    pitch_control,
+    players,
+    scouting,
+    statsbomb,
+)
 
 app = FastAPI(
     title="AthletIQ Prototype API",
@@ -37,3 +45,4 @@ app.include_router(pitch_control.router, prefix="/api/pitch-control", tags=["pit
 app.include_router(scouting.router, prefix="/api/scouting", tags=["scouting"])
 app.include_router(ahp_bip.router, prefix="/api/squad", tags=["squad"])
 app.include_router(cv.router, prefix="/api/cv", tags=["cv"])
+app.include_router(statsbomb.router, prefix="/api/statsbomb", tags=["statsbomb"])

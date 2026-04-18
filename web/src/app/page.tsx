@@ -26,6 +26,11 @@ const CARDS = [
     body: "Upload a broadcast MP4 to run YOLOv10 + ByteTrack, then Huber-refined homography to pitch coordinates.",
     href: "/cv",
   },
+  {
+    title: "Matches (StatsBomb open data)",
+    body: "Browse real competitions and matches. Every player's AthletIQ feature profile is aggregated live from StatsBomb events.",
+    href: "/matches",
+  },
 ];
 
 export default function HomePage() {
