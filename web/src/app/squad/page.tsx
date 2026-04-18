@@ -208,7 +208,7 @@ export default function SquadPage() {
       consistency_ratio: 0,
       is_consistent: true,
     });
-    if (s.preference_id != null) setLoadedPrefId(s.preference_id);
+    setLoadedPrefId(s.preference_id);
   };
 
   const onDeleteSquad = async (id: number) => {
