@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 import numpy as np
 
 from athletiq import __version__
-from athletiq.api.state import bootstrap, get_store
+from athletiq.api.state import bootstrap, get_store, reset_store
 from athletiq.data.synthetic import generate_synthetic_possession, generate_synthetic_snapshot
 from athletiq.metrics import (
     ddi,
@@ -25,11 +26,18 @@ from athletiq.scouting.bip import optimize_squad
 from athletiq.scouting.waspas import normalize_benefit, waspas_scores
 
 
-def _cmd_seed(_args: argparse.Namespace) -> int:
-    store = bootstrap(n=_args.n, seed=_args.seed)
+def _apply_source(args: argparse.Namespace) -> None:
+    if getattr(args, "synthetic", False):
+        os.environ["ATHLETIQ_COHORT_SOURCE"] = "synthetic"
+    reset_store()
+
+
+def _cmd_seed(args: argparse.Namespace) -> int:
+    _apply_source(args)
+    store = bootstrap()
     print(
-        f"[seed] {len(store.players)} players generated; PCA kept "
-        f"{store.pca.explained_variance:.1%} of variance in "
+        f"[seed] {len(store.players)} players loaded ({store.provenance.get('source')}); "
+        f"PCA kept {store.pca.explained_variance:.1%} of variance in "
         f"{store.pca.X_reduced.shape[1]} components."
     )
     return 0
@@ -59,7 +67,8 @@ def _cmd_demo(args: argparse.Namespace) -> int:
     print(f"[metrics] DDI (synthetic upgrade)    = {ddi(phi_b, phi_a, xx, yy):.1f} m^2")
 
     # Pillar B — cohort + AHP + WASPAS + BIP
-    store = bootstrap(n=args.n, seed=args.seed)
+    _apply_source(args)
+    store = bootstrap()
     print()
     print(
         f"[scouting] cohort={len(store.players)} players, PCA dims={store.pca.X_reduced.shape[1]}"
@@ -159,14 +168,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="athletiq", description="AthletIQ prototype CLI")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_seed = sub.add_parser("seed", help="seed in-memory synthetic cohort")
-    p_seed.add_argument("-n", type=int, default=240)
-    p_seed.add_argument("--seed", type=int, default=42)
+    p_seed = sub.add_parser("seed", help="load the in-memory player cohort")
+    p_seed.add_argument("--synthetic", action="store_true", help="force the synthetic cohort")
     p_seed.set_defaults(func=_cmd_seed)
 
     p_demo = sub.add_parser("demo", help="run full end-to-end demo in the terminal")
-    p_demo.add_argument("-n", type=int, default=240)
-    p_demo.add_argument("--seed", type=int, default=42)
+    p_demo.add_argument("--synthetic", action="store_true", help="force the synthetic cohort")
+    p_demo.add_argument("--seed", type=int, default=42, help="random seed for possession synth")
     p_demo.set_defaults(func=_cmd_demo)
 
     p_ver = sub.add_parser("version", help="print version")

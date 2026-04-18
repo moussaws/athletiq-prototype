@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
@@ -24,6 +26,25 @@ class PlayerOut(BaseModel):
 class PlayerListResponse(BaseModel):
     total: int
     items: list[PlayerOut]
+
+
+class CohortProvenance(BaseModel):
+    total: int
+    positions: dict[str, int]
+    provenance: dict[str, Any]
+
+
+@router.get("/meta/cohort", response_model=CohortProvenance)
+def cohort_meta() -> CohortProvenance:
+    store = get_store()
+    positions: dict[str, int] = {}
+    for p in store.players:
+        positions[p.position] = positions.get(p.position, 0) + 1
+    return CohortProvenance(
+        total=len(store.players),
+        positions=dict(sorted(positions.items())),
+        provenance=dict(store.provenance),
+    )
 
 
 @router.get("", response_model=PlayerListResponse)

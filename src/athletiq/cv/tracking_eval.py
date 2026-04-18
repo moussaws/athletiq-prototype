@@ -238,9 +238,7 @@ def load_motchallenge(path: str | Path) -> list[MOTFrame]:
             frame = int(float(row[0]))
             tid = int(float(row[1]))
             x, y, w, h = (float(v) for v in row[2:6])
-            by_frame.setdefault(frame, []).append(
-                MOTBox(track_id=tid, xyxy=(x, y, x + w, y + h))
-            )
+            by_frame.setdefault(frame, []).append(MOTBox(track_id=tid, xyxy=(x, y, x + w, y + h)))
     return [MOTFrame(frame=f, boxes=tuple(b)) for f, b in sorted(by_frame.items())]
 
 

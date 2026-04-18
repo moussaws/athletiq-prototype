@@ -132,24 +132,14 @@ def test_id_switch_counted_across_unmatched_gap() -> None:
     # frame 1: no prediction for gt#1 (unmatched gap)
     # frame 2: gt#1 matched to pred#2  → this is an ID switch
     gt = [
-        MOTFrame(
-            frame=0, boxes=(MOTBox(track_id=1, xyxy=(0.0, 0.0, 50.0, 100.0)),)
-        ),
-        MOTFrame(
-            frame=1, boxes=(MOTBox(track_id=1, xyxy=(10.0, 0.0, 60.0, 100.0)),)
-        ),
-        MOTFrame(
-            frame=2, boxes=(MOTBox(track_id=1, xyxy=(20.0, 0.0, 70.0, 100.0)),)
-        ),
+        MOTFrame(frame=0, boxes=(MOTBox(track_id=1, xyxy=(0.0, 0.0, 50.0, 100.0)),)),
+        MOTFrame(frame=1, boxes=(MOTBox(track_id=1, xyxy=(10.0, 0.0, 60.0, 100.0)),)),
+        MOTFrame(frame=2, boxes=(MOTBox(track_id=1, xyxy=(20.0, 0.0, 70.0, 100.0)),)),
     ]
     pred = [
-        MOTFrame(
-            frame=0, boxes=(MOTBox(track_id=1, xyxy=(0.0, 0.0, 50.0, 100.0)),)
-        ),
+        MOTFrame(frame=0, boxes=(MOTBox(track_id=1, xyxy=(0.0, 0.0, 50.0, 100.0)),)),
         MOTFrame(frame=1, boxes=tuple()),
-        MOTFrame(
-            frame=2, boxes=(MOTBox(track_id=2, xyxy=(20.0, 0.0, 70.0, 100.0)),)
-        ),
+        MOTFrame(frame=2, boxes=(MOTBox(track_id=2, xyxy=(20.0, 0.0, 70.0, 100.0)),)),
     ]
     score = compute_hota(gt, pred, iou_thresh=0.5)
     assert score.id_switches == 1
