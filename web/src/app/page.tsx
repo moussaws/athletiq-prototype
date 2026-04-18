@@ -21,6 +21,11 @@ const CARDS = [
     body: "240 synthetic players across 8 positions, with realistic position-specific feature archetypes.",
     href: "/players",
   },
+  {
+    title: "Pillar C — CV pipeline",
+    body: "Upload a broadcast MP4 to run YOLOv10 + ByteTrack, then Huber-refined homography to pitch coordinates.",
+    href: "/cv",
+  },
 ];
 
 export default function HomePage() {
