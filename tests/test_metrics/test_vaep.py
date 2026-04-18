@@ -110,6 +110,34 @@ def test_vaep_is_signed_and_sums_per_player() -> None:
         assert np.isfinite(p.offensive_vaep)
 
 
+def test_score_and_concede_labels_are_independent_in_multi_goal_window() -> None:
+    """Regression: the previous implementation broke out of the label
+    window on the first goal, so an action whose window contained both a
+    for-goal and an against-goal only ever labelled the first one. The
+    concede model therefore under-counted positives in multi-goal windows.
+
+    Here team-1 scores at step 3 and team-2 scores at step 5, both within
+    the k=10 window of the action at step 0 (team-1). That action should
+    be labelled *both* y_score=1 and y_concede=1.
+    """
+    from athletiq.metrics.vaep import _as_action_df, _build_labels
+
+    rows = [
+        _pass(10.0, 40.0, 20.0, 40.0, team=1, player=1, t=0.1),
+        _pass(20.0, 40.0, 30.0, 40.0, team=1, player=2, t=0.2),
+        _pass(30.0, 40.0, 110.0, 40.0, team=1, player=3, t=0.3),
+        _shot(115.0, 40.0, team=1, player=4, t=0.4, goal=True, name="T1S"),
+        _pass(60.0, 40.0, 80.0, 40.0, team=2, player=5, t=0.5),
+        _shot(115.0, 40.0, team=2, player=6, t=0.6, goal=True, name="T2S"),
+    ]
+    df = _as_action_df(pd.DataFrame(rows))
+    y_score, y_concede = _build_labels(df, k=10)
+    # First action is by team-1; both a for-goal and an against-goal occur
+    # within the next 10 actions, so both labels must be 1.
+    assert int(y_score[0]) == 1
+    assert int(y_concede[0]) == 1
+
+
 def test_action_type_filter_ignores_non_on_ball_events() -> None:
     rows = [
         _pass(10.0, 40.0, 30.0, 40.0, team=1, player=1, t=0.1, name="P1"),

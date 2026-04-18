@@ -162,6 +162,7 @@ def _build_labels(df: pd.DataFrame, k: int) -> tuple[np.ndarray, np.ndarray]:
                     y_score[i] = 1
                 else:
                     y_concede[i] = 1
+            if y_score[i] == 1 and y_concede[i] == 1:
                 break
     return y_score, y_concede
 
