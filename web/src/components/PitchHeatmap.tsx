@@ -1,15 +1,13 @@
 type Props = {
   phi: number[][];
-  x: number[];
-  y: number[];
+  xs?: number[];
+  ys?: number[];
   pitchLength?: number;
   pitchWidth?: number;
 };
 
 export default function PitchHeatmap({
   phi,
-  x,
-  y,
   pitchLength = 105,
   pitchWidth = 68,
 }: Props) {

@@ -23,16 +23,17 @@ const SAATY_SCALE = [
   { value: 9, label: "extreme" },
 ];
 
-function makeIdentity(n: number): number[][] {
-  return Array.from({ length: n }, (_, i) =>
-    Array.from({ length: n }, (_, j) => (i === j ? 1 : 1)),
-  );
+function makeAllOnes(n: number): number[][] {
+  // AHP seeds with equal importance between every pair of criteria, so every
+  // cell (including the diagonal) starts at 1. The user tweaks the upper
+  // triangle and reciprocals are auto-filled on the lower triangle.
+  return Array.from({ length: n }, () => Array.from({ length: n }, () => 1));
 }
 
 export default function SquadPage() {
   const [criteria] = useState<string[]>(DEFAULT_CRITERIA);
   const [matrix, setMatrix] = useState<number[][]>(() =>
-    makeIdentity(DEFAULT_CRITERIA.length),
+    makeAllOnes(DEFAULT_CRITERIA.length),
   );
   const [ahp, setAhp] = useState<AhpResponse | null>(null);
   const [squad, setSquad] = useState<SquadResponse | null>(null);
@@ -231,13 +232,13 @@ export default function SquadPage() {
               Q = {squad.total_score.toFixed(3)} · €
               {squad.budget_used.toFixed(1)}M used · {squad.foreign_count}{" "}
               foreigners
-              {squad.squad_gap && (
+              {squad.squad_gap_position && (
                 <>
                   {" "}
                   · gap: <span className="text-accent">
-                    {squad.squad_gap.position}
+                    {squad.squad_gap_position}
                   </span>{" "}
-                  (Δ{squad.squad_gap.delta.toFixed(3)})
+                  (Δ{squad.squad_gap_delta.toFixed(3)})
                 </>
               )}
             </div>
@@ -253,12 +254,12 @@ export default function SquadPage() {
               </tr>
             </thead>
             <tbody>
-              {squad.lineup.map((p) => (
+              {squad.assignments.map((p) => (
                 <tr key={p.player_id} className="border-t border-white/5">
                   <td className="py-1.5 text-white/70">{p.position}</td>
                   <td className="py-1.5">{p.name}</td>
                   <td className="py-1.5 text-right tabular-nums">
-                    {p.score.toFixed(3)}
+                    {p.positional_fit.toFixed(3)}
                   </td>
                   <td className="py-1.5 text-right tabular-nums">
                     {p.market_value_m.toFixed(1)}
