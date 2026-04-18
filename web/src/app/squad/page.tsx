@@ -191,6 +191,7 @@ export default function SquadPage() {
 
   const onLoadSquad = (s: SavedSquad) => {
     setCriteria(s.criteria);
+    setMatrix(makeAllOnes(s.criteria.length));
     setBudget(s.budget);
     setForeignMax(s.foreign_max);
     setSquad({

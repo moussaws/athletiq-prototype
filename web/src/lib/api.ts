@@ -218,5 +218,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await r.text().catch(() => r.statusText);
     throw new Error(`API ${path} failed: ${r.status} ${text}`);
   }
+  if (r.status === 204) {
+    return undefined as T;
+  }
   return (await r.json()) as T;
 }
