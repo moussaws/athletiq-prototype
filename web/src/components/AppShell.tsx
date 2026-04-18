@@ -76,9 +76,65 @@ function CohortBadge({ meta }: { meta: CohortProvenance | null }) {
   );
 }
 
+function NavGroups({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string | null;
+  onNavigate?: () => void;
+}) {
+  return (
+    <>
+      {NAV_GROUPS.map((grp) => (
+        <div key={grp.group} className="mt-4 first:mt-0">
+          <div className="px-2 pb-1 text-2xs font-semibold uppercase tracking-[0.2em] text-white/30">
+            {grp.group}
+          </div>
+          <div className="flex flex-col">
+            {grp.items.map((item) => {
+              const active =
+                pathname === item.href ||
+                (item.href !== "/" && pathname?.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={`group flex flex-col rounded-lg px-2 py-1.5 transition ${
+                    active
+                      ? "bg-white/[0.06] text-white"
+                      : "text-white/70 hover:bg-white/[0.04] hover:text-white"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    {active ? (
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-glow" />
+                    ) : (
+                      <span className="h-1.5 w-1.5 rounded-full bg-white/20 group-hover:bg-white/40" />
+                    )}
+                    {item.label}
+                  </span>
+                  <span className="ml-3.5 text-2xs text-white/40">
+                    {item.desc}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const meta = useCohort();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   return (
     <div className="relative min-h-screen">
@@ -110,44 +166,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             Football intelligence
           </div>
           <nav className="flex-1 overflow-y-auto px-4 pb-6">
-            {NAV_GROUPS.map((grp) => (
-              <div key={grp.group} className="mt-4 first:mt-0">
-                <div className="px-2 pb-1 text-2xs font-semibold uppercase tracking-[0.2em] text-white/30">
-                  {grp.group}
-                </div>
-                <div className="flex flex-col">
-                  {grp.items.map((item) => {
-                    const active =
-                      pathname === item.href ||
-                      (item.href !== "/" && pathname?.startsWith(item.href));
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`group flex flex-col rounded-lg px-2 py-1.5 transition ${
-                          active
-                            ? "bg-white/[0.06] text-white"
-                            : "text-white/70 hover:bg-white/[0.04] hover:text-white"
-                        }`}
-                      >
-                        <span className="flex items-center gap-2 text-sm font-medium">
-                          {active && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-glow" />
-                          )}
-                          {!active && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-white/20 group-hover:bg-white/40" />
-                          )}
-                          {item.label}
-                        </span>
-                        <span className="ml-3.5 text-2xs text-white/40">
-                          {item.desc}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+            <NavGroups pathname={pathname} />
           </nav>
           <div className="border-t border-white/5 p-4 text-2xs text-white/40">
             <div className="flex items-center justify-between">
@@ -161,9 +180,34 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <header className="sticky top-0 z-20 border-b border-white/5 bg-ink-950/60 backdrop-blur-lg">
             <div className="flex items-center justify-between gap-4 px-6 py-3 lg:px-10">
               <div className="flex items-center gap-3 lg:hidden">
+                <button
+                  type="button"
+                  aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+                  aria-expanded={mobileOpen}
+                  onClick={() => setMobileOpen((v) => !v)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/80 transition hover:border-accent/40 hover:text-white"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    {mobileOpen ? (
+                      <path d="M6 6l12 12M6 18L18 6" />
+                    ) : (
+                      <path d="M4 7h16M4 12h16M4 17h16" />
+                    )}
+                  </svg>
+                </button>
                 <div className="font-display text-base font-semibold tracking-tightest">
                   AthletIQ
                 </div>
+                <CohortBadge meta={meta} />
               </div>
               <div className="hidden items-center gap-2 lg:flex">
                 <span className="section-title">Live data</span>
@@ -185,6 +229,52 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div
+            className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-white/10 bg-ink-900/95 shadow-card">
+            <div className="flex items-center justify-between px-5 pt-5">
+              <div className="font-display text-lg font-semibold tracking-tightest">
+                AthletIQ
+              </div>
+              <button
+                type="button"
+                aria-label="Close navigation"
+                onClick={() => setMobileOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/80 transition hover:border-accent/40 hover:text-white"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M6 6l12 12M6 18L18 6" />
+                </svg>
+              </button>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-3 py-4">
+              <NavGroups
+                pathname={pathname}
+                onNavigate={() => setMobileOpen(false)}
+              />
+            </nav>
+            <div className="border-t border-white/5 p-4 text-2xs text-white/40">
+              <div className="flex items-center justify-between">
+                <span>FastAPI · Next.js</span>
+                <span className="font-mono">v0.1.0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
