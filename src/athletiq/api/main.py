@@ -9,6 +9,7 @@ from athletiq import __version__
 from athletiq.api.routes import (
     ahp_bip,
     cv,
+    cv_eval,
     metrics,
     persistence,
     pitch_control,
@@ -54,5 +55,6 @@ app.include_router(scouting.router, prefix="/api/scouting", tags=["scouting"])
 app.include_router(ahp_bip.router, prefix="/api/squad", tags=["squad"])
 app.include_router(persistence.router, prefix="/api/squad", tags=["squad"])
 app.include_router(cv.router, prefix="/api/cv", tags=["cv"])
+app.include_router(cv_eval.router, prefix="/api/cv/eval", tags=["cv"])
 app.include_router(statsbomb.router, prefix="/api/statsbomb", tags=["statsbomb"])
 app.include_router(recruit.router, prefix="/api/recruit", tags=["recruit"])
