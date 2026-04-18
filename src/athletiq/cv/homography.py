@@ -144,3 +144,108 @@ def refine_homography_huber(
     H_out[:8] = result.x
     H_out[8] = 1.0
     return H_out.reshape(3, 3)
+
+
+class DynamicHomographyTracker:
+    """Track the initial pitch-keypoint correspondences across frames with LK
+    optical flow and re-fit a per-frame homography.
+
+    The initial ``H_0`` is built once from ``kp`` (Huber-refined). On each
+    ``update(frame)`` call we propagate the active image-space keypoints to
+    the new frame using Lucas-Kanade pyramidal optical flow, drop any that
+    LK could not track confidently, and re-fit the homography from the
+    survivors. If fewer than 4 keypoints remain, the previous ``H`` is kept
+    (the tracker "coasts" rather than failing).
+
+    This is a classical, detector-free stabiliser: no new keypoint
+    detector is trained, no Pixel-NeRF refinement, just LK over the four
+    corners we already trust. It visibly improves pitch projection on
+    panning broadcast clips vs. the static-H baseline.
+    """
+
+    def __init__(
+        self,
+        kp: PitchKeypoints,
+        *,
+        lk_win: int = 21,
+        lk_levels: int = 3,
+        huber_delta: float = 1.0,
+    ) -> None:
+        if cv2 is None:
+            raise RuntimeError("opencv is required for LK tracking")
+        self._image_pts = kp.image_pts.astype(np.float32).copy()
+        self._pitch_pts = kp.pitch_pts.astype(np.float32).copy()
+        self._active = np.ones(len(self._image_pts), dtype=bool)
+        self._prev_gray: FloatArray | None = None
+        self._lk_params = dict(
+            winSize=(lk_win, lk_win),
+            maxLevel=lk_levels,
+            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01),
+        )
+        self._huber_delta = huber_delta
+        self._H_current = refine_homography_huber(kp, delta=huber_delta)
+
+    @property
+    def H(self) -> FloatArray:
+        return self._H_current
+
+    @property
+    def n_active(self) -> int:
+        return int(self._active.sum())
+
+    @property
+    def active_image_pts(self) -> FloatArray:
+        return self._image_pts[self._active]
+
+    @property
+    def active_pitch_pts(self) -> FloatArray:
+        return self._pitch_pts[self._active]
+
+    def prime(self, frame: FloatArray) -> None:
+        """Seed the tracker with the first-frame grayscale image."""
+        self._prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    def update(self, frame: FloatArray) -> FloatArray:
+        """Advance LK + re-fit H. Returns the new homography matrix (3×3)."""
+        if cv2 is None:
+            raise RuntimeError("opencv is required for LK tracking")
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if self._prev_gray is None:
+            self._prev_gray = gray
+            return self._H_current
+
+        prev_active = self._image_pts[self._active].reshape(-1, 1, 2).astype(np.float32)
+        if len(prev_active) < 4:
+            self._prev_gray = gray
+            return self._H_current
+
+        new_pts, status, _err = cv2.calcOpticalFlowPyrLK(
+            self._prev_gray, gray, prev_active, None, **self._lk_params
+        )
+        status = status.flatten().astype(bool) if status is not None else np.zeros(0, dtype=bool)
+
+        # map "which among the active set were tracked" back onto the full mask
+        active_idx = np.flatnonzero(self._active)
+        survived_local = np.zeros(len(active_idx), dtype=bool)
+        survived_local[: len(status)] = status
+        new_mask = self._active.copy()
+        new_mask[active_idx[~survived_local]] = False
+
+        # write back positions for the survivors
+        if new_pts is not None:
+            surv_new = new_pts.reshape(-1, 2)[survived_local]
+            self._image_pts[active_idx[survived_local]] = surv_new
+
+        self._active = new_mask
+        self._prev_gray = gray
+
+        if self._active.sum() >= 4:
+            kp = PitchKeypoints(
+                image_pts=self.active_image_pts.astype(np.float64),
+                pitch_pts=self.active_pitch_pts.astype(np.float64),
+            )
+            try:
+                self._H_current = refine_homography_huber(kp, delta=self._huber_delta)
+            except RuntimeError:
+                pass
+        return self._H_current

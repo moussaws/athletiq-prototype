@@ -18,7 +18,12 @@ from pathlib import Path
 import numpy as np
 import numpy.typing as npt
 
-from athletiq.cv.homography import PitchKeypoints, project_pixel_to_pitch, refine_homography_huber
+from athletiq.cv.homography import (
+    DynamicHomographyTracker,
+    PitchKeypoints,
+    project_pixel_to_pitch,
+    refine_homography_huber,
+)
 
 FloatArray = npt.NDArray[np.floating]
 
@@ -44,6 +49,15 @@ class VideoTrackingResult:
     fps: float = 25.0
     width: int = 0
     height: int = 0
+    # Per-frame homography (populated only when dynamic_homography=True).
+    # Keyed by frame index; values are 3×3 matrices. The static H above is
+    # the first-frame estimate.
+    homography_by_frame: dict[int, FloatArray] = field(default_factory=dict)
+    dynamic_homography: bool = False
+    # How many of the original keypoints survived LK tracking up to each
+    # frame (only populated when dynamic_homography=True). Useful to warn
+    # when the tracker has coasted with too few correspondences.
+    active_keypoints_by_frame: dict[int, int] = field(default_factory=dict)
 
     def tracks_by_id(self) -> dict[int, list[TrackedDetection]]:
         out: dict[int, list[TrackedDetection]] = {}
@@ -75,6 +89,7 @@ def analyze_video(
     conf: float = 0.25,
     iou: float = 0.5,
     max_frames: int | None = None,
+    dynamic_homography: bool = False,
     progress: Callable[[int, int], None] | None = None,
 ) -> VideoTrackingResult:
     """Run YOLOv10 + ByteTrack on a video and optionally project to pitch coords.
@@ -90,6 +105,10 @@ def analyze_video(
     device : "cpu" / "cuda" / "mps".
     conf, iou : detection thresholds.
     max_frames : optional cap for quick demos.
+    dynamic_homography : if True (and keypoints are given), propagate the
+        initial keypoints across frames with LK optical flow and re-fit H per
+        frame. Visibly more accurate on broadcast footage with camera pan/zoom
+        than the static first-frame H.
     progress : optional callback (frame_idx, total).
     """
     YOLO, sv = _try_import_cv_stack()  # noqa: N806
@@ -107,9 +126,16 @@ def analyze_video(
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
 
-    result = VideoTrackingResult(fps=fps, width=width, height=height)
+    result = VideoTrackingResult(
+        fps=fps, width=width, height=height, dynamic_homography=dynamic_homography
+    )
+    h_tracker: DynamicHomographyTracker | None = None
     if keypoints is not None:
-        result.homography = refine_homography_huber(keypoints)
+        if dynamic_homography:
+            h_tracker = DynamicHomographyTracker(keypoints)
+            result.homography = h_tracker.H
+        else:
+            result.homography = refine_homography_huber(keypoints)
 
     frame_idx = 0
     try:
@@ -119,6 +145,15 @@ def analyze_video(
                 break
             if max_frames is not None and frame_idx >= max_frames:
                 break
+
+            current_H = result.homography
+            if h_tracker is not None:
+                if frame_idx == 0:
+                    h_tracker.prime(frame)
+                else:
+                    current_H = h_tracker.update(frame)
+                result.homography_by_frame[frame_idx] = current_H.copy()
+                result.active_keypoints_by_frame[frame_idx] = h_tracker.n_active
 
             yolo_out = model.predict(frame, conf=conf, iou=iou, device=device, verbose=False)[0]
             detections = sv.Detections.from_ultralytics(yolo_out)
@@ -141,8 +176,8 @@ def analyze_video(
                 x1, y1, x2, y2 = (float(v) for v in bbox)
                 foot = ((x1 + x2) / 2.0, y2)
                 pitch_xy: tuple[float, float] | None = None
-                if result.homography is not None:
-                    p = project_pixel_to_pitch(result.homography, np.array(foot))
+                if current_H is not None:
+                    p = project_pixel_to_pitch(current_H, np.array(foot))
                     pitch_xy = (float(p[0]), float(p[1]))
                 result.detections.append(
                     TrackedDetection(

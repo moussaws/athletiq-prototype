@@ -18,6 +18,7 @@ _VIDEO_FILE = File(...)
 _KEYPOINTS_FORM = Form(default="")
 _MAX_FRAMES_FORM = Form(default=30)
 _CONF_FORM = Form(default=0.25)
+_DYN_HOMOGRAPHY_FORM = Form(default=False)
 
 
 class CVCapabilityResponse(BaseModel):
@@ -53,6 +54,10 @@ class VideoAnalysisResponse(BaseModel):
     height: int
     n_detections: int
     detections: list[DetectionOut]
+    dynamic_homography: bool = False
+    n_frames_with_homography: int = 0
+    min_active_keypoints: int | None = None
+    max_active_keypoints: int | None = None
 
 
 @router.post("/analyze", response_model=VideoAnalysisResponse)
@@ -61,6 +66,7 @@ async def analyze(
     keypoints_json: str = _KEYPOINTS_FORM,
     max_frames: int = _MAX_FRAMES_FORM,
     conf: float = _CONF_FORM,
+    dynamic_homography: bool = _DYN_HOMOGRAPHY_FORM,
 ) -> VideoAnalysisResponse:
     """Upload an MP4 and run YOLOv10 + ByteTrack (+ optional homography)."""
     try:
@@ -96,10 +102,12 @@ async def analyze(
             keypoints=keypoints,
             conf=conf,
             max_frames=max_frames,
+            dynamic_homography=dynamic_homography and keypoints is not None,
         )
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
+    active_counts = list(result.active_keypoints_by_frame.values())
     return VideoAnalysisResponse(
         fps=result.fps,
         width=result.width,
@@ -117,4 +125,8 @@ async def analyze(
             )
             for d in result.detections
         ],
+        dynamic_homography=result.dynamic_homography,
+        n_frames_with_homography=len(result.homography_by_frame),
+        min_active_keypoints=min(active_counts) if active_counts else None,
+        max_active_keypoints=max(active_counts) if active_counts else None,
     )

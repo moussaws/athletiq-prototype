@@ -98,6 +98,10 @@ export type CVAnalysisResponse = {
   height: number;
   n_detections: number;
   detections: CVDetection[];
+  dynamic_homography?: boolean;
+  n_frames_with_homography?: number;
+  min_active_keypoints?: number | null;
+  max_active_keypoints?: number | null;
 };
 
 export type StatsBombCapabilities = {
