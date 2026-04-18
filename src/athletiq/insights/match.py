@@ -171,14 +171,16 @@ def build_match_narrative(
     roster = list(players)
     home_players = [p for p in roster if p.team == home_team]
     away_players = [p for p in roster if p.team == away_team]
-    # If team names don't match (edge case), fall back to first unique team labels.
+    # If team names don't match (edge case — metadata labels differ from the
+    # event-team strings), fall back to the first unique team labels seen in
+    # the roster regardless of whether the caller's names were truthy.
     if not home_players and not away_players and roster:
         teams = []
         for p in roster:
             if p.team not in teams:
                 teams.append(p.team)
-        home_team = home_team or (teams[0] if teams else "Home")
-        away_team = away_team or (teams[1] if len(teams) > 1 else "Away")
+        home_team = teams[0] if teams else (home_team or "Home")
+        away_team = teams[1] if len(teams) > 1 else (away_team or "Away")
         home_players = [p for p in roster if p.team == home_team]
         away_players = [p for p in roster if p.team == away_team]
 

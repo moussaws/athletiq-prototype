@@ -124,6 +124,27 @@ def test_defensive_worker_uses_combined_tackles_and_interceptions():
     assert "9 tackles + interceptions" in dw[0].verdict
 
 
+def test_team_name_mismatch_still_attributes_players():
+    # Metadata says "England Women" but events say "England" — the caller's
+    # home_team/away_team are non-empty but don't match any roster row.
+    # Narrative must still attribute players to both sides (via roster fallback).
+    players = [
+        _P("h1", "One", "CM", "England", xt_carry=0.5, passes_completed=50),
+        _P("h2", "Two", "CM", "England", shots=3),
+        _P("a1", "Three", "CM", "Spain", xt_carry=0.2, passes_completed=30),
+    ]
+    n = build_match_narrative(
+        match_id=7,
+        home_team="England Women",
+        away_team="Spain Women",
+        score="",
+        players=players,
+    )
+    # Fallback should relabel the teams to the roster's strings and keep players.
+    assert {t.team for t in n.teams} == {"England", "Spain"}
+    assert all(t.players_count > 0 for t in n.teams)
+
+
 def test_team_totals_match_inputs():
     n = build_match_narrative(
         match_id=5,
