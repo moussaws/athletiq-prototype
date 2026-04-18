@@ -104,6 +104,26 @@ def test_top_performer_skipped_when_no_activity():
     assert home.top_performers == []
 
 
+def test_defensive_worker_uses_combined_tackles_and_interceptions():
+    # Tackler has 4 tackles + 0 int = 4. Interceptor has 1 tackle + 8 int = 9.
+    # Combined metric should pick Interceptor and report the sum (9).
+    players = [
+        _P("h1", "Tackler", "CB", "Home", tackles=4, interceptions=0),
+        _P("h2", "Interceptor", "DM", "Home", tackles=1, interceptions=8),
+    ]
+    n = build_match_narrative(
+        match_id=6,
+        home_team="Home",
+        away_team="Away",
+        score="",
+        players=players,
+    )
+    dw = [p for p in n.teams[0].top_performers if p.role == "Defensive worker"]
+    assert dw and dw[0].name == "Interceptor"
+    assert dw[0].value == 9
+    assert "9 tackles + interceptions" in dw[0].verdict
+
+
 def test_team_totals_match_inputs():
     n = build_match_narrative(
         match_id=5,

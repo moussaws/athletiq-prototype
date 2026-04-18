@@ -12,7 +12,7 @@ want them (analyst view).
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -79,12 +79,18 @@ def _team_totals(players: list[MatchPlayerLike]) -> dict[str, float]:
 
 
 def _top(
-    players: list[MatchPlayerLike], key: str, role: str, metric_label: str
+    players: list[MatchPlayerLike],
+    scorer: str | Callable[[MatchPlayerLike], float],
+    role: str,
+    metric_label: str,
 ) -> TopPerformer | None:
+    score: Callable[[MatchPlayerLike], float] = (
+        (lambda p: _safe(getattr(p, scorer))) if isinstance(scorer, str) else scorer
+    )
     best: MatchPlayerLike | None = None
     best_val = -1.0
     for p in players:
-        v = _safe(getattr(p, key))
+        v = score(p)
         if v > best_val:
             best_val = v
             best = p
@@ -189,7 +195,12 @@ def build_match_narrative(
             _top(players_, "xt_carry", "Creator", "xT carry"),
             _top(players_, "take_ons", "Ball carrier", "take-ons"),
             _top(players_, "shots", "Finisher", "shots"),
-            _top(players_, "tackles", "Defensive worker", "tackles"),
+            _top(
+                players_,
+                lambda p: _safe(p.tackles) + _safe(p.interceptions),
+                "Defensive worker",
+                "tackles + interceptions",
+            ),
             _top(players_, "passes_completed", "Passer", "passes completed"),
         ]
         return TeamSummary(
