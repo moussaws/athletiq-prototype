@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from athletiq.data.synthetic import generate_synthetic_possession
+from athletiq.insights import describe_ddi
 from athletiq.metrics import (
     collective_pressure,
     individual_unit_pressure,
@@ -131,6 +132,7 @@ class DDILeaderboardRow(BaseModel):
     ddi_m2: float
     actions: int
     avg_per_action: float
+    verdict: str
 
 
 class DDILeaderboardResponse(BaseModel):
@@ -139,6 +141,7 @@ class DDILeaderboardResponse(BaseModel):
     tau: float
     total_ddi_m2: float
     items: list[DDILeaderboardRow]
+    headline: str
 
 
 @router.get("/ddi-leaderboard", response_model=DDILeaderboardResponse)
@@ -158,13 +161,23 @@ def ddi_leaderboard(
             ddi_m2=p.ddi_m2,
             actions=p.actions,
             avg_per_action=p.avg_per_action,
+            verdict=describe_ddi(p.ddi_m2, p.actions),
         )
         for p in match.leaderboard[:limit]
     ]
+    top = match.leaderboard[0] if match.leaderboard else None
+    if top is not None and top.ddi_m2 > 0:
+        headline = (
+            f"{top.name} ({top.position}) created the most dangerous space "
+            f"({top.ddi_m2:.0f} m²) — {describe_ddi(top.ddi_m2, top.actions).lower()}"
+        )
+    else:
+        headline = "No dangerous-zone actions in this match sample."
     return DDILeaderboardResponse(
         seed=match.seed,
         n_actions=match.n_actions,
         tau=match.tau,
         total_ddi_m2=match.total_ddi_m2,
         items=rows,
+        headline=headline,
     )

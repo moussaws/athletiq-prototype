@@ -70,17 +70,30 @@ export default async function MetricsPage() {
       )}
 
       <div className="mt-10">
-        <h2 className="text-2xl font-semibold">DDI leaderboard</h2>
-        <p className="mt-2 text-white/60">
-          Per-player Defensive Distortion Index (Eq. 8) — square metres of
-          high-threat space (xT ≥ τ) opened up by each attacker over a
-          synthetic match. Attribution uses a single-mover scheme: in each of
-          the{" "}
-          <code className="rounded bg-white/10 px-1">n_actions</code>{" "}
-          actions, exactly one attacker steps into the final third; the DDI
-          between the before/after pitch-control surfaces is credited to that
-          player.
+        <h2 className="text-2xl font-semibold">Who opens up the final third?</h2>
+        <p className="mt-2 text-white/70">
+          A ranking of the players who, by stepping in with the ball, created
+          the most <span className="text-white">dangerous space</span> for
+          team-mates — the area inside the opposition&apos;s final-third defensive
+          shape that suddenly became attackable.
         </p>
+        {lb && (
+          <p className="mt-2 rounded border border-accent/30 bg-accent/5 p-3 text-sm text-white/90">
+            {lb.headline}
+          </p>
+        )}
+        <details className="mt-2 text-xs text-white/40">
+          <summary className="cursor-pointer select-none">Analyst view</summary>
+          <p className="mt-1">
+            Defensive Distortion Index (Eq. 8) — square metres of high-threat
+            space (xT ≥ τ) opened up by each attacker over a synthetic match.
+            Single-mover attribution: in each of the{" "}
+            <code className="rounded bg-white/10 px-1">n_actions</code>{" "}
+            actions, exactly one attacker steps into the final third; the DDI
+            between the before/after pitch-control surfaces is credited to that
+            player.
+          </p>
+        </details>
 
         {lbError && (
           <div className="mt-6 rounded border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
@@ -107,9 +120,8 @@ export default async function MetricsPage() {
                   <th className="py-2 pr-2">#</th>
                   <th className="py-2 pr-2">Player</th>
                   <th className="py-2 pr-2">Pos</th>
-                  <th className="py-2 pr-2 text-right">DDI (m²)</th>
-                  <th className="py-2 pr-2 text-right">Actions</th>
-                  <th className="py-2 pr-2 text-right">Avg / action</th>
+                  <th className="py-2 pr-2">Coach verdict</th>
+                  <th className="py-2 pr-2 text-right">Space (m²)</th>
                   <th className="py-2 pr-2">Share</th>
                 </tr>
               </thead>
@@ -126,14 +138,11 @@ export default async function MetricsPage() {
                       <td className="py-2 pr-2 text-white/60">
                         {row.position}
                       </td>
+                      <td className="py-2 pr-2 text-white/80">
+                        {row.verdict}
+                      </td>
                       <td className="py-2 pr-2 text-right tabular-nums">
                         {row.ddi_m2.toFixed(1)}
-                      </td>
-                      <td className="py-2 pr-2 text-right tabular-nums text-white/60">
-                        {row.actions}
-                      </td>
-                      <td className="py-2 pr-2 text-right tabular-nums text-white/60">
-                        {row.avg_per_action.toFixed(1)}
                       </td>
                       <td className="py-2 pr-2">
                         <div className="h-2 w-full rounded bg-white/10">

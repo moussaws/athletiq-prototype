@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from athletiq.api.state import get_store
+from athletiq.insights import describe_player_style, label_archetype
 from athletiq.scouting.cluster import fit_kmeans_silhouette, fit_pca
 from athletiq.scouting.similarity import knn_similar_players
 
@@ -88,6 +89,9 @@ class ArchetypeBucket(BaseModel):
     cluster_id: int
     size: int
     members: list[str]
+    name: str
+    description: str
+    key_traits: list[str]
 
 
 class ArchetypeResponse(BaseModel):
@@ -111,18 +115,86 @@ def archetypes_for_position(position: str) -> ArchetypeResponse:
         clust = fit_kmeans_silhouette(pca.X_reduced)
         store.clusters_by_position[position] = (pca, clust)
 
-    pca, clust = store.clusters_by_position[position]
-    mask = np.array([p.position == position for p in store.players])
-    ids = np.array([p.player_id for p in store.players])[mask]
+    _pca, clust = store.clusters_by_position[position]
+    players_at_pos = [p for p in store.players if p.position == position]
+    ids = np.array([p.player_id for p in players_at_pos])
     buckets: dict[int, list[str]] = {}
     for pid, label in zip(ids.tolist(), clust.labels.tolist(), strict=True):
         buckets.setdefault(int(label), []).append(str(pid))
+
+    # Reference distribution (mean, std) per feature across this position so
+    # archetype labeling can reason in z-scores.
+    feature_names = list(players_at_pos[0].features.keys())
+    feat_matrix = np.array([[p.features[f] for f in feature_names] for p in players_at_pos])
+    ref = {
+        f: (float(feat_matrix[:, i].mean()), float(feat_matrix[:, i].std()))
+        for i, f in enumerate(feature_names)
+    }
+    id_to_cluster = {
+        pid: int(lbl) for pid, lbl in zip(ids.tolist(), clust.labels.tolist(), strict=True)
+    }
+    # Centroid per cluster in raw feature space (easier to label than PCA space).
+    centroids: dict[int, dict[str, float]] = {}
+    for cid in sorted(buckets):
+        member_rows = [
+            [p.features[f] for f in feature_names]
+            for p in players_at_pos
+            if id_to_cluster[p.player_id] == cid
+        ]
+        arr = np.array(member_rows)
+        centroids[cid] = {f: float(arr[:, i].mean()) for i, f in enumerate(feature_names)}
+
+    bucket_rows: list[ArchetypeBucket] = []
+    for c, members in sorted(buckets.items()):
+        archetype = label_archetype(position, centroids[c], ref)
+        bucket_rows.append(
+            ArchetypeBucket(
+                cluster_id=c,
+                size=len(members),
+                members=members,
+                name=archetype.name,
+                description=archetype.description,
+                key_traits=archetype.key_traits,
+            )
+        )
     return ArchetypeResponse(
         position=position,
         k=clust.k,
         silhouette=clust.silhouette,
-        buckets=[
-            ArchetypeBucket(cluster_id=c, size=len(members), members=members)
-            for c, members in sorted(buckets.items())
-        ],
+        buckets=bucket_rows,
+    )
+
+
+class PlayerStyleResponse(BaseModel):
+    player_id: str
+    position: str
+    style: str
+    archetype_name: str
+    archetype_description: str
+    archetype_key_traits: list[str]
+
+
+@router.get("/style/{player_id}", response_model=PlayerStyleResponse)
+def player_style(player_id: str) -> PlayerStyleResponse:
+    """Coach-facing style summary + archetype label for a single player."""
+    store = get_store()
+    target = next((p for p in store.players if p.player_id == player_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail=f"player {player_id} not found")
+
+    peers = [p for p in store.players if p.position == target.position]
+    feature_names = list(target.features.keys())
+    arr = np.array([[p.features[f] for f in feature_names] for p in peers])
+    ref = {
+        f: (float(arr[:, i].mean()), float(arr[:, i].std())) for i, f in enumerate(feature_names)
+    }
+    style = describe_player_style(target.position, target.features, ref)
+    archetype = label_archetype(target.position, target.features, ref)
+    return PlayerStyleResponse(
+        player_id=player_id,
+        position=target.position,
+        style=style,
+        archetype_name=archetype.name,
+        archetype_description=archetype.description,
+        archetype_key_traits=archetype.key_traits,
     )
