@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { api, type PlayersListResponse } from "@/lib/api";
+import { api, type CohortProvenance, type PlayersListResponse } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -20,15 +20,26 @@ export default async function PlayersPage({
     error = e instanceof Error ? e.message : String(e);
   }
 
+  let meta: CohortProvenance | null = null;
+  try {
+    meta = await api<CohortProvenance>("/api/players/meta/cohort");
+  } catch {
+    meta = null;
+  }
+  const source = meta?.provenance?.source ?? "";
+  const isReal = source.toLowerCase().startsWith("fbref");
+  const total = meta?.total ?? data?.total ?? 0;
+  const season = meta?.provenance?.season ?? "2023-24";
+  const blurb = isReal
+    ? `Real FBRef Big-5 cohort — ${total.toLocaleString()} players with ≥900 minutes played across the top five European leagues in ${season}. Search by name or filter by position to inspect the exact list used by every other screen.`
+    : "Synthetic fallback cohort — position-specific archetypes with realistic feature distributions. The backend cohort endpoint is unreachable or seeded from the synthetic generator.";
+
   const positions = ["GK", "CB", "FB", "DM", "CM", "AM", "WG", "ST"];
 
   return (
     <div className="max-w-6xl">
       <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">Players</h1>
-      <p className="mt-2 text-white/60">
-        Synthetic cohort generated at API startup. Position-specific archetypes
-        with realistic feature distributions.
-      </p>
+      <p className="mt-2 text-white/60">{blurb}</p>
 
       <form className="mt-6 flex gap-2 text-sm" method="get">
         <input
