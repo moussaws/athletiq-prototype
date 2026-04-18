@@ -123,6 +123,38 @@ def test_extra_false_positive_track_drops_deta() -> None:
     assert score.deta == pytest.approx(10.0 / (10 + 0 + 10))
 
 
+def test_id_switch_counted_across_unmatched_gap() -> None:
+    """A GT track that reappears under a different pred id after an
+    unmatched frame must still count as an ID switch. Regression for a
+    bug where prev_gt_to_pred was replaced (instead of updated) each
+    frame, clearing the history during gaps."""
+    # frame 0: gt#1 matched to pred#1
+    # frame 1: no prediction for gt#1 (unmatched gap)
+    # frame 2: gt#1 matched to pred#2  → this is an ID switch
+    gt = [
+        MOTFrame(
+            frame=0, boxes=(MOTBox(track_id=1, xyxy=(0.0, 0.0, 50.0, 100.0)),)
+        ),
+        MOTFrame(
+            frame=1, boxes=(MOTBox(track_id=1, xyxy=(10.0, 0.0, 60.0, 100.0)),)
+        ),
+        MOTFrame(
+            frame=2, boxes=(MOTBox(track_id=1, xyxy=(20.0, 0.0, 70.0, 100.0)),)
+        ),
+    ]
+    pred = [
+        MOTFrame(
+            frame=0, boxes=(MOTBox(track_id=1, xyxy=(0.0, 0.0, 50.0, 100.0)),)
+        ),
+        MOTFrame(frame=1, boxes=tuple()),
+        MOTFrame(
+            frame=2, boxes=(MOTBox(track_id=2, xyxy=(20.0, 0.0, 70.0, 100.0)),)
+        ),
+    ]
+    score = compute_hota(gt, pred, iou_thresh=0.5)
+    assert score.id_switches == 1
+
+
 def test_load_motchallenge_roundtrip(tmp_path: Path) -> None:
     path = tmp_path / "gt.txt"
     path.write_text(

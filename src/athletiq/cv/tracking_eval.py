@@ -150,16 +150,14 @@ def compute_hota(
         fp += len(pframe.boxes) - len(matched_pred_idx)
         fn += len(gframe.boxes) - len(matched_gt_idx)
 
-        new_gt_to_pred: dict[int, int] = {}
         for gi, pi, _ in matches:
             g_id = gframe.boxes[gi].track_id
             p_id = pframe.boxes[pi].track_id
             key = (g_id, p_id)
             tpa[key] = tpa.get(key, 0) + 1
-            new_gt_to_pred[g_id] = p_id
             if g_id in prev_gt_to_pred and prev_gt_to_pred[g_id] != p_id:
                 id_switches += 1
-        prev_gt_to_pred = new_gt_to_pred
+            prev_gt_to_pred[g_id] = p_id
 
     if tp == 0:
         deta = 0.0
