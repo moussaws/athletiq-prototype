@@ -19,6 +19,23 @@ export type PlayersListResponse = {
   items: Player[];
 };
 
+export type CohortProvenance = {
+  total: number;
+  positions: Record<string, number>;
+  provenance: {
+    source?: string;
+    season?: string;
+    n_players?: number;
+    competitions?: string[];
+    min_minutes_filter?: number;
+    market_value_real?: number;
+    market_value_imputed?: number;
+    proxy_features?: string[];
+    proxy_note?: string;
+    seed?: number;
+  };
+};
+
 export type SimilarPlayer = {
   player_id: string;
   name: string;

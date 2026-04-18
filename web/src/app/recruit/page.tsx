@@ -60,7 +60,7 @@ export default function RecruitPage() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-3xl font-semibold">Recruit — coach brief</h1>
+      <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">Recruit — coach brief</h1>
       <p className="mt-2 max-w-3xl text-white/60">
         Describe the player you want in football language — role and style —
         and we&apos;ll rank the cohort by fit. No need to build weight

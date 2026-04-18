@@ -52,7 +52,7 @@ const STORIES: Story[] = [
     problem:
       "Your number 6 left. You want a press-resistant replacement — someone who keeps the ball under pressure, progresses it, and can dig out of trouble. Under €25M, ideally under 30.",
     what_youll_see:
-      "The recruit page takes the brief, picks the criteria and weights for you, runs WASPAS across the synthetic cohort, and ranks the DMs with a one-line &apos;why they fit&apos; verdict each.",
+      "The recruit page takes the brief, picks the criteria and weights for you, runs WASPAS across the live Big-5 cohort, and ranks the DMs with a one-line &apos;why they fit&apos; verdict each.",
     steps: [
       {
         title: "Open the recruit brief",
@@ -98,7 +98,7 @@ export default function DemoPage() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-3xl font-semibold">Guided tour</h1>
+      <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">Guided tour</h1>
       <p className="mt-2 max-w-3xl text-white/60">
         Three coach-level questions AthletIQ answers end-to-end. Pick one to
         walk through the screens; each step links directly to the relevant page

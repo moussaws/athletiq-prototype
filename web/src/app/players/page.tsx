@@ -24,7 +24,7 @@ export default async function PlayersPage({
 
   return (
     <div className="max-w-6xl">
-      <h1 className="text-3xl font-semibold">Players</h1>
+      <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">Players</h1>
       <p className="mt-2 text-white/60">
         Synthetic cohort generated at API startup. Position-specific archetypes
         with realistic feature distributions.
