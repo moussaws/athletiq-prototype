@@ -129,9 +129,9 @@ export default async function HomePage() {
             </h1>
             <p className="mt-5 max-w-2xl text-pretty text-base text-white/60 sm:text-lg">
               Match debriefs, recruit briefs, squad philosophies, and single-camera
-              tape projection — all grounded in {total.toLocaleString()} real players
-              from Europe&rsquo;s top five leagues. Mathy analyst view is one toggle
-              away.
+              tape projection — all grounded in {total.toLocaleString()}{" "}
+              {isReal ? "real players from Europe\u2019s top five leagues" : "players"}.
+              Mathy analyst view is one toggle away.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/demo" className="btn-primary">
