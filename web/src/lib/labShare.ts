@@ -80,7 +80,9 @@ export function encodeLabShare(state: LabSharePayload): string {
 
 export function decodeLabShare(raw: string): LabShareState | null {
   try {
-    const obj = JSON.parse(decodeURIComponent(raw)) as {
+    // URLSearchParams.get() already decoded percent-encoding once — matches
+    // the JSON.parse-direct pattern in parseLabHint below.
+    const obj = JSON.parse(raw) as {
       v?: unknown;
       f?: unknown;
       a?: unknown;
