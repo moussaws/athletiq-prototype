@@ -14,6 +14,7 @@ Implements the equations from Section 3 of the AthletIQ paper:
 
 from athletiq.metrics.ddi import ddi
 from athletiq.metrics.pitch_control import pitch_control_surface
+from athletiq.metrics.pitch_control_zones import ZonalSummary, Zone, zonal_summary
 from athletiq.metrics.pressure import (
     collective_pressure,
     individual_unit_pressure,
@@ -28,6 +29,8 @@ from athletiq.metrics.xt import (
 )
 
 __all__ = [
+    "Zone",
+    "ZonalSummary",
     "collective_pressure",
     "ddi",
     "default_xt_grid",
@@ -38,4 +41,5 @@ __all__ = [
     "progressive_carry_xt",
     "raw_individual_pressure",
     "xt_value_at",
+    "zonal_summary",
 ]

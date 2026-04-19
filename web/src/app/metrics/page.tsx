@@ -4,6 +4,7 @@ import {
   type PitchControlResponse,
 } from "@/lib/api";
 import PitchHeatmap from "@/components/PitchHeatmap";
+import PitchZonalView from "@/components/PitchZonalView";
 
 export const dynamic = "force-dynamic";
 
@@ -40,9 +41,9 @@ export default async function MetricsPage() {
     <div className="max-w-5xl">
       <h1 className="font-display text-4xl font-semibold tracking-tightest text-white">Context-aware metrics</h1>
       <p className="mt-2 text-white/60">
-        Pitch Control surface from the demo snapshot (11v11, attacking team in
-        the final third). Φ(x) ∈ [0, 1] measures the probability that the
-        attacking team reaches position x before the defence (Eq. 7).
+        Where does the attack own the pitch right now? The snapshot below turns
+        the pitch-control surface (Eq. 7) into a zonal read: which third, which
+        channel, and the single biggest weak spot in each direction.
       </p>
 
       {phiError && (
@@ -51,22 +52,34 @@ export default async function MetricsPage() {
         </div>
       )}
 
-      {phi && (
-        <div className="mt-8 rounded border border-white/10 bg-white/5 p-4">
-          <div className="flex items-center justify-between text-sm">
-            <div className="font-medium">Pitch control Φ</div>
-            <div className="text-xs text-white/50">
-              grid {rows}×{cols} · mean {mean.toFixed(3)}
-            </div>
-          </div>
-          <div className="mt-4">
-            <PitchHeatmap phi={phi.phi} xs={phi.xs} ys={phi.ys} />
-          </div>
-          <div className="mt-2 text-xs text-white/50">
-            Dark green = defensive dominance (0). Bright green = attacking
-            dominance (1).
-          </div>
+      {phi && phi.zonal && (
+        <div className="mt-8">
+          <PitchZonalView zonal={phi.zonal} />
         </div>
+      )}
+
+      {phi && (
+        <details className="mt-4 text-xs text-white/50">
+          <summary className="cursor-pointer select-none text-white/60">
+            Analyst view — raw 34×52 grid
+          </summary>
+          <div className="mt-3 rounded border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center justify-between text-sm">
+              <div className="font-medium text-white/80">Pitch control Φ</div>
+              <div className="text-xs text-white/50">
+                grid {rows}×{cols} · mean {mean.toFixed(3)}
+              </div>
+            </div>
+            <div className="mt-4">
+              <PitchHeatmap phi={phi.phi} xs={phi.xs} ys={phi.ys} />
+            </div>
+            <p className="mt-2 text-xs text-white/50">
+              Φ(x) ∈ [0, 1] — probability that the attacking team reaches
+              position x before the defence. Dark green = defensive dominance
+              (0). Bright green = attacking dominance (1).
+            </p>
+          </div>
+        </details>
       )}
 
       <div className="mt-10">

@@ -54,10 +54,36 @@ export type SimilarityResponse = {
   results: SimilarPlayer[];
 };
 
+export type PitchZone = {
+  channel_index: number;
+  third_index: number;
+  channel: string;
+  third: string;
+  label: string;
+  x_range: [number, number];
+  y_range: [number, number];
+  x_center: number;
+  y_center: number;
+  phi_mean: number;
+};
+
+export type PitchZonalSummary = {
+  zones: PitchZone[];
+  channels: string[];
+  thirds: string[];
+  hottest_attack: PitchZone;
+  defensive_weak_point: PitchZone;
+  opportunity_zone: PitchZone;
+  balance_attacker_pct: number;
+  balance_defender_pct: number;
+  headline: string;
+};
+
 export type PitchControlResponse = {
   phi: number[][];
   xs: number[];
   ys: number[];
+  zonal?: PitchZonalSummary | null;
 };
 
 export type PressureResponse = {
