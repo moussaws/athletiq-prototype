@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 import numpy as np
-from fastapi import APIRouter, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from athletiq.data.synthetic import generate_synthetic_snapshot
-from athletiq.metrics import ddi, pitch_control_surface, zonal_summary
+from athletiq.metrics import (
+    VALID_FORMATIONS,
+    ScenarioDiff,
+    ddi,
+    default_ball_position,
+    defensive_line_height_m,
+    diff_scenarios,
+    formation_preset,
+    phi_from_positions,
+    pitch_control_surface,
+    zonal_summary,
+)
 from athletiq.metrics.pitch_control import PlayerSnapshot
 from athletiq.metrics.pitch_control_zones import ZonalSummary, Zone
 
@@ -142,3 +155,168 @@ def demo_ddi(seed: int = 0, tau: float = 0.08) -> DDIDemoResponse:
     phi_a, _, _ = pitch_control_surface(after, grid_shape=(34, 52))
     val = ddi(np.array(phi_b), np.array(phi_a), xx, yy, tau=tau)
     return DDIDemoResponse(ddi_m2=val, tau=tau)
+
+
+# ---------------------------------------------------------------------------
+# Tactical Counterfactual Lab — scenario endpoint
+# ---------------------------------------------------------------------------
+
+
+class Point(BaseModel):
+    x: float
+    y: float
+
+    def as_tuple(self) -> tuple[float, float]:
+        return (self.x, self.y)
+
+
+class ScenarioRequest(BaseModel):
+    attackers: list[Point] = Field(
+        ..., min_length=1, max_length=11, description="Attacker positions (<= 11)."
+    )
+    defenders: list[Point] = Field(
+        ..., min_length=1, max_length=11, description="Defender positions (<= 11)."
+    )
+    ball: Point = Field(..., description="Ball position (metres, on the pitch).")
+    grid_rows: int = 34
+    grid_cols: int = 52
+    baseline_seed: int | None = Field(
+        default=None,
+        description=(
+            "If provided, also return a diff against the seeded demo baseline. "
+            "Set to null to skip diffing."
+        ),
+    )
+
+
+class ScenarioDiffDTO(BaseModel):
+    delta_phi_mean: float
+    delta_phi_final_third: float
+    delta_balance_attacker_pct: float
+    delta_defensive_line_height_m: float
+    per_zone_delta: list[float]
+    headline: str
+
+
+class ScenarioResponse(BaseModel):
+    phi: list[list[float]]
+    xs: list[float]
+    ys: list[float]
+    zonal: ZonalSummaryDTO | None = None
+    diff: ScenarioDiffDTO | None = None
+    defensive_line_height_m: float
+
+
+def _scenario_diff_dto(d: ScenarioDiff) -> ScenarioDiffDTO:
+    return ScenarioDiffDTO(
+        delta_phi_mean=d.delta_phi_mean,
+        delta_phi_final_third=d.delta_phi_final_third,
+        delta_balance_attacker_pct=d.delta_balance_attacker_pct,
+        delta_defensive_line_height_m=d.delta_defensive_line_height_m,
+        per_zone_delta=list(d.per_zone_delta),
+        headline=d.headline,
+    )
+
+
+@router.post("/scenario", response_model=ScenarioResponse)
+def compute_scenario(req: ScenarioRequest) -> ScenarioResponse:
+    """Recompute Φ for an edited scenario + optionally diff against a baseline seed.
+
+    This is the core endpoint behind the Tactical Counterfactual Lab (`/lab`):
+    given raw attacker, defender and ball positions it returns the attacker
+    dominance grid, the 4×3 coach-facing zonal read, and (if ``baseline_seed``
+    is set) the delta vs. that seeded demo snapshot.
+    """
+    atk = np.array([[p.x, p.y] for p in req.attackers], dtype=np.float64)
+    dfn = np.array([[p.x, p.y] for p in req.defenders], dtype=np.float64)
+    ball = (req.ball.x, req.ball.y)
+
+    phi, xs, ys = phi_from_positions(
+        atk,
+        dfn,
+        ball,
+        grid_shape=(req.grid_rows, req.grid_cols),
+    )
+
+    try:
+        summary = zonal_summary(phi, xs, ys)
+        zonal = _zonal_dto(summary)
+    except ValueError:
+        summary = None
+        zonal = None
+
+    line_height = defensive_line_height_m(dfn)
+
+    diff: ScenarioDiffDTO | None = None
+    if req.baseline_seed is not None and summary is not None:
+        baseline_players = generate_synthetic_snapshot(seed=req.baseline_seed)
+        base_phi, base_xx, base_yy = pitch_control_surface(
+            baseline_players, grid_shape=(req.grid_rows, req.grid_cols)
+        )
+        try:
+            base_summary = zonal_summary(base_phi, base_xx[0], base_yy[:, 0])
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "grid too small for baseline diff — minimum grid_rows=4, grid_cols=3 required"
+                ),
+            ) from exc
+        base_def_xy = np.array(
+            [[p.x, p.y] for p in baseline_players if p.team == 1], dtype=np.float64
+        )
+        d = diff_scenarios(
+            baseline=base_summary,
+            scenario=summary,
+            baseline_phi=base_phi,
+            scenario_phi=phi,
+            baseline_xs=base_xx[0],
+            scenario_xs=xs,
+            baseline_defenders=base_def_xy,
+            scenario_defenders=dfn,
+        )
+        diff = _scenario_diff_dto(d)
+
+    return ScenarioResponse(
+        phi=phi.tolist(),
+        xs=xs.tolist(),
+        ys=ys.tolist(),
+        zonal=zonal,
+        diff=diff,
+        defensive_line_height_m=line_height,
+    )
+
+
+class FormationPresetResponse(BaseModel):
+    formation: str
+    role: Literal["attacker", "defender"]
+    positions: list[Point]
+    ball: Point
+    valid_formations: list[str]
+
+
+@router.get("/scenario/preset", response_model=FormationPresetResponse)
+def get_formation_preset(
+    formation: str = Query(default="4-3-3"),
+    role: Literal["attacker", "defender"] = Query(default="attacker"),
+) -> FormationPresetResponse:
+    """Return template positions for a formation + role to seed `/lab`.
+
+    The attacker template attacks toward ``+x`` (GK at low ``x``). The
+    defender template is the mirror image, so seeding attackers + defenders
+    with the same formation yields a realistic 11v11 starting position.
+    """
+    if formation not in VALID_FORMATIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=(f"Unknown formation {formation!r}. Valid: {sorted(VALID_FORMATIONS)}"),
+        )
+    positions = formation_preset(formation, role)
+    ball = default_ball_position()
+    return FormationPresetResponse(
+        formation=formation,
+        role=role,
+        positions=[Point(x=x, y=y) for (x, y) in positions],
+        ball=Point(x=ball[0], y=ball[1]),
+        valid_formations=list(VALID_FORMATIONS),
+    )
