@@ -19,7 +19,7 @@ type ScenarioState = {
 };
 
 const PITCH_LENGTH = 105;
-const DEFAULT_GRID = { rows: 34, cols: 52 };
+const DEFAULT_GRID = { grid_rows: 34, grid_cols: 52 };
 
 async function fetchPreset(
   formation: Formation,
@@ -77,6 +77,9 @@ export default function ScenarioLab() {
   // abort the in-flight POST when a new drag commits
   const inflight = useRef<AbortController | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // monotonically-increasing generation so an aborted request's `.finally`
+  // doesn't prematurely clear `recomputing` for its replacement.
+  const generation = useRef(0);
 
   // Load preset → establish baseline + initial Φ.
   useEffect(() => {
@@ -119,18 +122,25 @@ export default function ScenarioLab() {
       inflight.current?.abort();
       const ctrl = new AbortController();
       inflight.current = ctrl;
+      const gen = ++generation.current;
       setRecomputing(true);
       const t0 = performance.now();
       postScenario(next, ctrl.signal)
         .then((resp) => {
+          if (generation.current !== gen) return;
           setPhi(resp);
           setLastElapsed(performance.now() - t0);
         })
         .catch((e) => {
           if ((e as Error).name === "AbortError") return;
+          if (generation.current !== gen) return;
           setError(e instanceof Error ? e.message : String(e));
         })
-        .finally(() => setRecomputing(false));
+        .finally(() => {
+          // Only the latest request's completion clears the spinner; aborted
+          // predecessors leave `recomputing=true` for their replacement.
+          if (generation.current === gen) setRecomputing(false);
+        });
     }, 120);
   }, []);
 
