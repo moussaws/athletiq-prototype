@@ -114,7 +114,7 @@ class MatchNarrativeResponse(BaseModel):
 # ─── Routes ───────────────────────────────────────────────────────────
 @router.get("/capabilities", response_model=CapabilitiesResponse)
 def capabilities() -> CapabilitiesResponse:
-    if sb_mod.STATSBOMB_AVAILABLE:
+    if sb_mod.statsbomb_available():
         return CapabilitiesResponse(statsbomb_available=True, reason=None)
     return CapabilitiesResponse(
         statsbomb_available=False,
@@ -124,7 +124,7 @@ def capabilities() -> CapabilitiesResponse:
 
 @router.get("/competitions", response_model=CompetitionsResponse)
 def competitions() -> CompetitionsResponse:
-    if not sb_mod.STATSBOMB_AVAILABLE:
+    if not sb_mod.statsbomb_available():
         raise HTTPException(status_code=503, detail="statsbombpy not installed")
     try:
         comps = sb_mod.list_competitions()
@@ -139,7 +139,7 @@ def matches(
     competition_id: int = Query(..., ge=1),
     season_id: int = Query(..., ge=1),
 ) -> MatchesResponse:
-    if not sb_mod.STATSBOMB_AVAILABLE:
+    if not sb_mod.statsbomb_available():
         raise HTTPException(status_code=503, detail="statsbombpy not installed")
     try:
         ms = sb_mod.list_matches(competition_id, season_id)
@@ -163,7 +163,7 @@ _IMPUTED_FEATURES = [
 
 @router.get("/match/{match_id}", response_model=MatchCohortResponse)
 def match_cohort(match_id: int) -> MatchCohortResponse:
-    if not sb_mod.STATSBOMB_AVAILABLE:
+    if not sb_mod.statsbomb_available():
         raise HTTPException(status_code=503, detail="statsbombpy not installed")
     try:
         players = sb_mod.load_match_players(match_id)
@@ -215,7 +215,7 @@ def match_insights(match_id: int) -> MatchNarrativeResponse:
     defensive worker / passer). The raw per-player table is still
     available via the ``/match/{id}`` endpoint for analyst view.
     """
-    if not sb_mod.STATSBOMB_AVAILABLE:
+    if not sb_mod.statsbomb_available():
         raise HTTPException(status_code=503, detail="statsbombpy not installed")
     try:
         players = sb_mod.load_match_players(match_id)

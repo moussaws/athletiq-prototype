@@ -55,7 +55,7 @@ def vaep_match(
     match_id: int,
     k: int = Query(default=10, ge=1, le=30),
 ) -> MatchVAEPResponse:
-    if not sb_mod.STATSBOMB_AVAILABLE:
+    if not sb_mod.statsbomb_available():
         raise HTTPException(
             status_code=503, detail="statsbombpy not installed. `pip install -e '.[statsbomb]'`"
         )

@@ -184,7 +184,7 @@ class _FakeSB:
 def _patch_sb(monkeypatch: pytest.MonkeyPatch) -> Any:
     """Swap in the fake statsbombpy facade + clear the LRU cache."""
     monkeypatch.setattr(sb_mod, "sb", _FakeSB())
-    monkeypatch.setattr(sb_mod, "STATSBOMB_AVAILABLE", True)
+    monkeypatch.setattr(sb_mod, "statsbomb_available", lambda: True)
     sb_mod.clear_match_cache()
     yield
     sb_mod.clear_match_cache()

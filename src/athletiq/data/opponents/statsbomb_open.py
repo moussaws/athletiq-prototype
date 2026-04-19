@@ -47,20 +47,16 @@ from pathlib import Path
 
 import numpy as np
 
+# Use the central runtime-checked availability gate so this module shares
+# the post-#33 behaviour: ``statsbomb_available()`` is recomputed on every
+# call, so a server started before ``statsbombpy`` is installed will still
+# pick up the dependency once it appears in the environment.
+from athletiq.data import statsbomb as _sb_mod
 from athletiq.data.opponents.license_gate import assert_license_tier_allows
 from athletiq.data.opponents.store import (
     HistogramSamples,
     OpponentProfile,
 )
-
-try:
-    from statsbombpy import sb  # type: ignore
-
-    _STATSBOMB_AVAILABLE = True
-except ImportError:  # pragma: no cover
-    sb = None  # type: ignore[assignment]
-    _STATSBOMB_AVAILABLE = False
-
 
 logger = logging.getLogger(__name__)
 
@@ -176,11 +172,10 @@ class StatsBombOpenStore:
             json.dump(profile.to_dict(), f, indent=2, sort_keys=True)
 
     def _build_profile(self, spec: _OpponentSpec) -> OpponentProfile:
-        if not _STATSBOMB_AVAILABLE:
-            raise RuntimeError(
-                "statsbombpy is not installed; cannot ingest opponent profiles. "
-                "Run `pip install -e '.[statsbomb]'`."
-            )
+        # Lazy-imports ``sb_mod.sb`` if statsbombpy just became available;
+        # raises with a clear message if it's still missing.
+        _sb_mod._require_statsbombpy()
+        sb = _sb_mod.sb
 
         with warnings.catch_warnings():
             # statsbombpy emits a NoAuthWarning on every call when running

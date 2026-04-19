@@ -279,15 +279,14 @@ def compute_match_vaep(events_df: pd.DataFrame, *, k: int = 10) -> tuple[MatchVA
 @lru_cache(maxsize=32)
 def match_vaep(match_id: int, k: int = 10) -> MatchVAEP:
     """Load a StatsBomb match and compute VAEP-lite. Cached per match."""
-    from athletiq.data.statsbomb import STATSBOMB_AVAILABLE, sb
+    import athletiq.data.statsbomb as sb_mod
 
-    if not STATSBOMB_AVAILABLE:
-        raise RuntimeError("statsbombpy is not installed")
+    sb_mod._require_statsbombpy()  # also lazy-imports sb_mod.sb if needed
     import warnings
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        events = sb.events(match_id=match_id)
+        events = sb_mod.sb.events(match_id=match_id)
     mv, _ = compute_match_vaep(events, k=k)
     return MatchVAEP(
         match_id=match_id,

@@ -30,6 +30,8 @@ default xT grid.
 
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import warnings
 from dataclasses import dataclass
 from functools import lru_cache
@@ -42,13 +44,24 @@ from athletiq.scouting.vectorize import PlayerVector
 if TYPE_CHECKING:
     import pandas as pd
 
-try:
-    from statsbombpy import sb  # type: ignore
+# ``sb`` starts as None and is lazy-imported on first use via
+# :func:`_require_statsbombpy`. This keeps :func:`statsbomb_available` honest
+# about runtime state — a server started before ``statsbombpy`` is installed
+# cannot get stuck reporting unavailability for the rest of its lifetime
+# (athletiq-prototype#33). Direct ``from athletiq.data.statsbomb import sb``
+# at module import time may still see ``None``; consumers should call
+# :func:`_require_statsbombpy` first or read ``sb_mod.sb`` after the call.
+sb: Any = None
 
-    STATSBOMB_AVAILABLE = True
-except ImportError:  # pragma: no cover
-    sb = None  # type: ignore[assignment]
-    STATSBOMB_AVAILABLE = False
+
+def statsbomb_available() -> bool:
+    """Live runtime check for whether ``statsbombpy`` is importable.
+
+    Recomputed on each call so an API server doesn't get pinned to a
+    stale ``False`` after the dependency is installed at runtime
+    (e.g. ``pip install`` against a long-running dev server).
+    """
+    return importlib.util.find_spec("statsbombpy") is not None
 
 
 # ─── Position mapping ──────────────────────────────────────────────────
@@ -130,8 +143,18 @@ def _xt_lookup(loc: list[float] | None, xt_grid: Any) -> float:
 
 # ─── Public API ────────────────────────────────────────────────────────
 def _require_statsbombpy() -> None:
-    if not STATSBOMB_AVAILABLE:
+    """Raise if ``statsbombpy`` is unavailable; lazily import ``sb`` on success.
+
+    Called at the top of every public function in this module. Mutates the
+    module-level ``sb`` so subsequent reads — including direct
+    ``sb_mod.sb`` references in route handlers — see the imported module
+    instead of ``None``.
+    """
+    global sb
+    if not statsbomb_available():
         raise RuntimeError("statsbombpy is not installed. Run `pip install -e '.[statsbomb]'`.")
+    if sb is None:
+        sb = importlib.import_module("statsbombpy").sb
 
 
 def list_competitions() -> list[StatsBombCompetition]:
