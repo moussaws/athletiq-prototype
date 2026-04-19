@@ -174,11 +174,7 @@ def zonal_summary(
         channels = tuple(f"Channel {i + 1}" for i in range(n_channels))
     else:
         channels = CHANNEL_NAMES
-    thirds = (
-        tuple(f"Third {i + 1}" for i in range(n_thirds))
-        if n_thirds != 3
-        else THIRD_NAMES
-    )
+    thirds = tuple(f"Third {i + 1}" for i in range(n_thirds)) if n_thirds != 3 else THIRD_NAMES
 
     xs_1d = np.asarray(xs)
     ys_1d = np.asarray(ys)
@@ -191,6 +187,11 @@ def zonal_summary(
     if xs_1d.shape != (W,) or ys_1d.shape != (H,):
         raise ValueError(
             f"xs/ys shape mismatch: phi={phi.shape}, xs={xs_1d.shape}, ys={ys_1d.shape}"
+        )
+    if n_channels > H or n_thirds > W:
+        raise ValueError(
+            f"phi grid too small for zonal aggregation: phi={phi.shape}, "
+            f"need at least ({n_channels}, {n_thirds})"
         )
 
     third_slices = _slice_indices(W, n_thirds)

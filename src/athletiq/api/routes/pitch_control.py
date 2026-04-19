@@ -93,12 +93,17 @@ def _zonal_dto(s: ZonalSummary) -> ZonalSummaryDTO:
 def compute_pitch_control(req: PitchControlRequest) -> PitchControlResponse:
     players = [PlayerSnapshot(**p.model_dump()) for p in req.players]
     phi, xx, yy = pitch_control_surface(players, grid_shape=(req.grid_rows, req.grid_cols))
-    summary = zonal_summary(phi, xx[0], yy[:, 0])
+    try:
+        summary = zonal_summary(phi, xx[0], yy[:, 0])
+        zonal = _zonal_dto(summary)
+    except ValueError:
+        # grid too small for 4x3 zonal aggregation — skip, keep raw Φ payload
+        zonal = None
     return PitchControlResponse(
         phi=phi.tolist(),
         xs=xx[0].tolist(),
         ys=yy[:, 0].tolist(),
-        zonal=_zonal_dto(summary),
+        zonal=zonal,
     )
 
 

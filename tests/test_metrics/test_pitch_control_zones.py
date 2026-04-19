@@ -17,6 +17,39 @@ def _xs_ys(phi_shape: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
     return xs, ys
 
 
+def test_small_grid_raises_value_error() -> None:
+    # grid smaller than (n_channels=4, n_thirds=3) cannot be zonally aggregated
+    phi = np.full((3, 52), 0.5)
+    xs, ys = _xs_ys(phi.shape)
+    with pytest.raises(ValueError, match="too small"):
+        zonal_summary(phi, xs, ys)
+
+
+def test_post_endpoint_skips_zonal_for_small_grid() -> None:
+    # POST /api/pitch-control used to 500 with IndexError on small grids;
+    # it now returns zonal=None gracefully (Devin Review #18).
+    from fastapi.testclient import TestClient
+
+    from athletiq.api.main import app
+
+    client = TestClient(app)
+    r = client.post(
+        "/api/pitch-control",
+        json={
+            "players": [
+                {"x": 50.0, "y": 34.0, "vx": 0.0, "vy": 0.0, "team": 0},
+                {"x": 55.0, "y": 34.0, "vx": 0.0, "vy": 0.0, "team": 1},
+            ],
+            "grid_rows": 3,
+            "grid_cols": 52,
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["zonal"] is None
+    assert len(body["phi"]) == 3
+
+
 def test_twelve_zones_cover_full_pitch() -> None:
     phi = np.full((34, 52), 0.5)
     xs, ys = _xs_ys(phi.shape)
