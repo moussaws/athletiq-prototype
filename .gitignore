@@ -58,3 +58,6 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 downloaded_files/
+
+# ApexYard session state (markers, etc.)
+.claude/
