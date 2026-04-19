@@ -35,6 +35,10 @@ dependencies = [
   # cv (heavier — installed in api/worker image; optional extras mirror this)
   "opencv-python-headless>=4.9,<5",
   "pillow>=10.2,<12",
+  # opponent-data adapter — required by athletiq.data.opponents.statsbomb_open
+  # (Counterfactual Lab Pillar 2). Promoted from the [statsbomb] extra to
+  # core in athletiq-prototype#27 because the Lab requires it at all times.
+  "statsbombpy>=1.13,<2",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +59,8 @@ dev = [
   "jupyter>=1.0,<2",
   "matplotlib>=3.8,<4",
 ]
+# statsbomb extra retained for backward compatibility with any existing
+# tooling that referenced it; the dependency itself is now in core.
 statsbomb = [
   "statsbombpy>=1.13,<2",
 ]
