@@ -52,7 +52,7 @@ PlayerProfile (new)
 ```
 OpponentProfile (new — domain type, not a DB row in v1)
 ├── opponent_id: str          # slug, stable across runs (e.g. "atletico-2018-19")
-├── display_name: str         # "Atlético Madrid — La Liga 2018-19"
+├── display_name: str         # "Bayer Leverkusen — Bundesliga 2023/24"
 ├── source_attribution: str   # "StatsBomb Open Data — CC BY-NC-SA 4.0"
 ├── formation_mix: list[(formation, weight)]   # e.g. [("4-4-2", 0.7), ("4-2-3-1", 0.3)]
 ├── def_line_height_distribution: HistogramSamples
@@ -339,7 +339,7 @@ Tasks ordered by Phase. Each task = one PR's worth of work; tests included in th
 |---|---|---|
 | Unit | All math changes, > 90% | Per-player TTI extension (P1-4); player-conditional xG (P1-6); license gate closed-fail (P2-2) |
 | Integration | Each new route + the modified `/api/pitch-control/scenario` | Fixture-driven; `StatsBombOpenStore` runs against a small committed fixture, not live data |
-| End-to-end | One critical flow | P2-10 — load Atlético, swap a player, assert diff cards change. Runs on CI. |
+| End-to-end | One critical flow | P2-10 — load Bayer Leverkusen 2023-24, swap a high-`finishing_pct` forward into the lineup, assert that the `xg_for` diff card visibly increases. Runs on CI. |
 | Performance | Pitch Control regression check | `pytest-benchmark` baseline before P1-4 lands; assert Phase 1 + Phase 2 stay within +10% of that baseline |
 
 ---

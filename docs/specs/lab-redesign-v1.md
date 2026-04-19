@@ -54,7 +54,7 @@ The critique (see `lab-critique.md` §2) catalogues 12 gaps. v1 closes the four 
 
 ## User Stories
 
-1. As an **assistant coach preparing for Sunday's Atlético match**, I want to select Atlético from an opponent dropdown so I can experiment against their actual defensive posture, not a generic 4-3-3 mirror.
+1. As an **assistant coach preparing for Sunday's Bayer Leverkusen match**, I want to select Bayer Leverkusen from an opponent dropdown so I can experiment against their actual defensive posture (back-three system at ~45 m line height), not a generic 4-3-3 mirror.
 2. As an **assistant coach**, I want my chosen lineup to change the simulation so the player names matter, not just the dot positions.
 3. As an **assistant coach**, I want the Lab to show me a useful insight about my opponent the moment the page loads so I'm not staring at *"drag a defender to see…"*.
 4. As a **head of recruitment looking at a scouting candidate**, I want to drop them into our XI in the Lab against our next opponent and see how our shape changes, so I can connect "should we sign them?" to "how do they help us **next**?"
@@ -73,7 +73,7 @@ The critique (see `lab-critique.md` §2) catalogues 12 gaps. v1 closes the four 
 - **`StatsBombOpenStore` implementation** behind that interface, using the existing `statsbombpy` optional extra (now mandatory for the Lab module).
 - **`ATHLETIQ_LICENSE_TIER` env-var gate** that fails closed: `tier=open` is allowed only when `ATHLETIQ_ENV ∈ {dev, demo, internal}`. Production envs require `tier=paid`. Both vars unset → no opponent data loads. Tested with a unit test that asserts the closed-fail behaviour.
 - **`OpponentProfile` domain type**: `(positional_heatmap, pressing_intensity_per_zone, def_line_height_distribution, formation_mix, transition_speed_proxy, source_attribution_text)`. The minimum viable shape to drive Pillar 1 of the critique.
-- **2 opponent profiles built and committed**: candidates per AgDR-0002 — Atlético (block-and-counter, La Liga 2015–2020 coverage), Bayer Leverkusen 2023-24 (if covered), or an Euro 2024 side. Final 2-of-3 pick happens before the first PR.
+- **2 opponent profiles built and committed**: **Bayer Leverkusen Bundesliga 2023-24** (34 matches, full Xabi Alonso unbeaten campaign — back-three formations 3-4-2-1 / 3-4-3 / 3-4-1-2) and **Spain Euro 2024** (7 matches, full tournament including the final). Resolved per Open Q #1; one already produced via the spike (athletiq-prototype#27).
 - **Per-player tactical profile** ingested from FBRef. Stored as `PlayerProfile`: `(pressing_pct, progressive_pass_pct, aerial_duel_win_pct, finishing_pct)` — all derivable from FBRef per-90 counts via percentile rank within the position pool. Kinematic absolute units (`max_speed_ms`, `max_accel_ms2`) are **deferred** to a future phase that lands a real tracking source — verified against `src/athletiq/data/fbref.py:9-15` which states FBRef does not publish tracking-derived signals. See resolved Open Question #2.
 
 #### Math layer
@@ -149,7 +149,7 @@ Single-engineer wall-clock estimates. Multi-engineer reduces proportionally.
 | Phase | Scope | Effort | Deliverable |
 |---|---|---|---|
 | **Phase 0** | Foundation cleanup — baseline-on-landing, strip Greek letters from coach surface, confidence pill placeholder, lineup disclaimer removal, feature flag wiring | **3–5 days** | `/lab?v=2` ships with the cosmetic fixes. Demoable end-of-week. |
-| **Phase 1** | Player tactical profile — `PlayerProfile` schema (tactical percentiles only, no kinematic absolutes per resolved Open Q #2), FBRef percentile ingestion, `scenario_xg` goes player-conditional, lineup actually moves the numbers | **4–6 days** | Brand-promise restored; the lineup section is no longer cosmetic. |
+| **Phase 1** | Player tactical profile — `PlayerProfile` schema (tactical percentiles only, no kinematic absolutes per resolved Open Q #2), FBRef percentile ingestion, `scenario_xg` goes player-conditional, lineup actually moves the numbers | **6–7 days** | Brand-promise restored; the lineup section is no longer cosmetic. |
 | **Phase 2** | Opponent profile v0 — `OpponentEventStore` interface, `StatsBombOpenStore`, `ATHLETIQ_LICENSE_TIER` gate, **Bayer Leverkusen 2023-24 + Spain Euro 2024** shipped, opponent selector UI, defender preset replacement | **10–14 days** | First end-to-end demo we can run with a real coach. |
 | **Total** | | **2.5–4 weeks** | v1 ready for the first design-partner session. |
 

@@ -82,3 +82,5 @@ The "candidate opponents" line above (Atlético / Bayer / Euro 2024 side) was th
 **Implication for the decision itself**: none — Option A still wins on the same reasoning. The footnote exists so the next person reading this AgDR doesn't repeat the Atlético mistake based on the original example list.
 
 **General rule for future use**: StatsBomb Open's per-team coverage is *competition-centric, not team-centric*. La Liga = Barcelona-focused; Bundesliga 2023-24 = full season; tournaments (Euros, World Cups) = full coverage of all teams. Verify with `sb.matches()` before committing to any team-level v1 demo plan.
+
+**End-to-end verification**: the Bayer Leverkusen 2023-24 profile was actually built and committed via the spike (athletiq-prototype#27 / PR #28). The 34-matches claim is therefore reproducible from the committed `src/athletiq/data/opponents/profiles/bayer-leverkusen-2023-24.json` (`matches_observed: 34`), not just from the live API call.
