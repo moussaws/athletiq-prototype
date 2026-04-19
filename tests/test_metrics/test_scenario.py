@@ -106,6 +106,17 @@ def test_defensive_line_height_excludes_gk() -> None:
     assert 28 <= h <= 32
 
 
+def test_defensive_line_height_single_defender() -> None:
+    """Regression: the single-defender case must still return distance from
+    the defender's own goal, not raw x. Before the fix this fell through to a
+    ``float(dfn[:, 0].mean())`` fallback in the API layer and returned ``90``
+    for a lone defender at x=90 instead of the correct ``15``."""
+    assert defensive_line_height_m([(90.0, 34.0)]) == pytest.approx(15.0)
+    assert defensive_line_height_m([(0.0, 34.0)]) == pytest.approx(105.0)
+    # two defenders, no GK to drop yet — still measured from own goal
+    assert defensive_line_height_m([(80.0, 20.0), (80.0, 48.0)]) == pytest.approx(25.0)
+
+
 def test_defensive_line_height_higher_means_pushed_up() -> None:
     # Deep block: defender GK at x=95, back line at x=85 → line height = 20 m
     deep = [(95, 34), (85, 10), (85, 30), (85, 50), (85, 65)]

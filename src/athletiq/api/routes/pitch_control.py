@@ -14,6 +14,7 @@ from athletiq.metrics import (
     ScenarioDiff,
     ddi,
     default_ball_position,
+    defensive_line_height_m,
     diff_scenarios,
     formation_preset,
     phi_from_positions,
@@ -244,9 +245,7 @@ def compute_scenario(req: ScenarioRequest) -> ScenarioResponse:
         summary = None
         zonal = None
 
-    from athletiq.metrics.scenario import defensive_line_height_m
-
-    line_height = defensive_line_height_m(dfn) if len(dfn) >= 2 else float(dfn[:, 0].mean())
+    line_height = defensive_line_height_m(dfn)
 
     diff: ScenarioDiffDTO | None = None
     if req.baseline_seed is not None and summary is not None:
