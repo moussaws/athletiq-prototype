@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import ScenarioDiffCards from "@/components/ScenarioDiffCards";
+import ScenarioHeadline from "@/components/ScenarioHeadline";
 import ScenarioPitch from "@/components/ScenarioPitch";
 import {
   API_BASE,
@@ -38,12 +40,15 @@ async function fetchPreset(
 
 async function postScenario(
   state: ScenarioState,
+  baseline: ScenarioState | null,
   signal?: AbortSignal,
 ): Promise<ScenarioResponse> {
+  const body: Record<string, unknown> = { ...state, ...DEFAULT_GRID };
+  if (baseline) body.baseline = baseline;
   const r = await fetch(`${API_BASE}/api/pitch-control/scenario`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...state, ...DEFAULT_GRID }),
+    body: JSON.stringify(body),
     cache: "no-store",
     signal,
   });
@@ -68,6 +73,9 @@ export default function ScenarioLab() {
   const [baseline, setBaseline] = useState<ScenarioState | null>(null);
   const [state, setState] = useState<ScenarioState | null>(null);
   const [phi, setPhi] = useState<ScenarioResponse | null>(null);
+  // Remember the initial Φ that belongs to the baseline so the diff cards
+  // can show "baseline → current" values after the first edit.
+  const [baselinePhi, setBaselinePhi] = useState<ScenarioResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [recomputing, setRecomputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,11 +105,13 @@ export default function ScenarioLab() {
           defenders: dfn.positions,
           ball: atk.ball,
         };
-        const resp = await postScenario(init);
+        // Initial load: no baseline field, so `resp.diff` stays null.
+        const resp = await postScenario(init, null);
         if (cancelled) return;
         setBaseline(init);
         setState(init);
         setPhi(resp);
+        setBaselinePhi(resp);
         setLineNudge(0);
       } catch (e) {
         if (cancelled) return;
@@ -112,11 +122,23 @@ export default function ScenarioLab() {
     })();
     return () => {
       cancelled = true;
+      // Cancel any pending debounced recompute and abort the in-flight POST
+      // so a stale old-formation response can't race past the guard and
+      // overwrite the new formation's Φ after it loads.
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = null;
+      }
+      inflight.current?.abort();
+      // Bump the generation too so any already-resolving predecessor is
+      // strictly ignored by the `generation.current === gen` guards below.
+      generation.current += 1;
     };
   }, [formation]);
 
-  // Debounced recompute on state change.
-  const scheduleRecompute = useCallback((next: ScenarioState) => {
+  // Debounced recompute on state change. Every request after the initial
+  // load pins the current baseline so the backend returns a proper diff.
+  const scheduleRecompute = useCallback((next: ScenarioState, base: ScenarioState) => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       inflight.current?.abort();
@@ -125,7 +147,7 @@ export default function ScenarioLab() {
       const gen = ++generation.current;
       setRecomputing(true);
       const t0 = performance.now();
-      postScenario(next, ctrl.signal)
+      postScenario(next, base, ctrl.signal)
         .then((resp) => {
           if (generation.current !== gen) return;
           setPhi(resp);
@@ -145,15 +167,16 @@ export default function ScenarioLab() {
   }, []);
 
   function applyPatch(next: ScenarioState) {
+    if (!baseline) return;
     setState(next);
-    scheduleRecompute(next);
+    scheduleRecompute(next, baseline);
   }
 
   function onReset() {
     if (!baseline) return;
     setState(baseline);
     setLineNudge(0);
-    scheduleRecompute(baseline);
+    scheduleRecompute(baseline, baseline);
   }
 
   function onLineNudge(newDelta: number) {
@@ -163,6 +186,55 @@ export default function ScenarioLab() {
     setLineNudge(newDelta);
     applyPatch({ ...state, defenders: nextDef });
   }
+
+  // Whole-pitch & final-third Φ means are derived from the grid so we
+  // don't need a second endpoint call just for the diff-card values.
+  const phiStats = useCallback((resp: ScenarioResponse | null) => {
+    if (!resp) {
+      return { phi_mean: 0, phi_final_third: 0 };
+    }
+    const grid = resp.phi;
+    const xs = resp.xs;
+    let total = 0;
+    let count = 0;
+    let ftTotal = 0;
+    let ftCount = 0;
+    for (let r = 0; r < grid.length; r++) {
+      const row = grid[r];
+      for (let c = 0; c < row.length; c++) {
+        total += row[c];
+        count += 1;
+        if (xs[c] >= 70) {
+          ftTotal += row[c];
+          ftCount += 1;
+        }
+      }
+    }
+    return {
+      phi_mean: count ? total / count : 0,
+      phi_final_third: ftCount ? ftTotal / ftCount : 0,
+    };
+  }, []);
+
+  const baselineSnapshot = useMemo(() => {
+    const stats = phiStats(baselinePhi);
+    return {
+      phi_mean: stats.phi_mean,
+      phi_final_third: stats.phi_final_third,
+      balance_attacker_pct: baselinePhi?.zonal?.balance_attacker_pct ?? 50,
+      defensive_line_height_m: baselinePhi?.defensive_line_height_m ?? 0,
+    };
+  }, [baselinePhi, phiStats]);
+
+  const currentSnapshot = useMemo(() => {
+    const stats = phiStats(phi);
+    return {
+      phi_mean: stats.phi_mean,
+      phi_final_third: stats.phi_final_third,
+      balance_attacker_pct: phi?.zonal?.balance_attacker_pct ?? 50,
+      defensive_line_height_m: phi?.defensive_line_height_m ?? 0,
+    };
+  }, [phi, phiStats]);
 
   const edited = useMemo(() => {
     if (!state || !baseline) return false;
@@ -249,6 +321,13 @@ export default function ScenarioLab() {
         </div>
       </div>
 
+      {/* dynamic coach verdict — updates live as the scenario changes */}
+      <ScenarioHeadline
+        diff={phi.diff ?? null}
+        edited={edited}
+        recomputing={recomputing}
+      />
+
       {/* pitch + live readouts */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
         <ScenarioPitch
@@ -317,12 +396,87 @@ export default function ScenarioLab() {
         </aside>
       </div>
 
+      {/* four-card diff strip — baseline → current → Δ for each headline metric */}
+      <ScenarioDiffCards
+        diff={phi.diff ?? null}
+        baseline={baselineSnapshot}
+        current={currentSnapshot}
+      />
+
       <p className="text-2xs text-white/40">
-        Drag any player dot (cyan = attacker, magenta = defender, white = ball)
+        Drag any player dot (green = attacker, magenta = defender, white = ball)
         to move them. Keyboard: tab to a dot, then arrow keys nudge 1 m (Shift
         + arrow = 5 m). Pitch is 105 × 68 m; attackers are attacking toward the
         right. Φ recomputes on a 34 × 52 grid.
       </p>
+
+      {/* Analyst view — raw numbers + per-zone delta grid. Collapsed by
+          default so coaches aren't distracted; the diff cards + headline
+          above are the primary coach-facing read. */}
+      <details className="group rounded border border-white/10 bg-white/5 p-3 text-xs">
+        <summary className="cursor-pointer list-none select-none text-white/60 transition hover:text-white">
+          <span className="mr-2 font-mono text-white/40 group-open:hidden">▸</span>
+          <span className="mr-2 font-mono text-white/40 hidden group-open:inline">▾</span>
+          Analyst view — per-zone Φ delta, raw line height, scenario JSON
+        </summary>
+        <div className="mt-3 flex flex-col gap-4">
+          {phi.diff && phi.zonal ? (
+            <div>
+              <div className="mb-1 text-2xs uppercase tracking-[0.18em] text-white/40">
+                Per-zone Φ delta (4 rows × 3 cols, final third on the right)
+              </div>
+              <div className="grid grid-cols-3 gap-1 font-mono tabular-nums">
+                {phi.zonal.zones.map((zone, idx) => {
+                  const delta = phi.diff!.per_zone_delta[idx] ?? 0;
+                  const bg =
+                    Math.abs(delta) < 1e-3
+                      ? "bg-white/5 text-white/50"
+                      : delta > 0
+                        ? "bg-accent/15 text-accent"
+                        : "bg-magenta/15 text-magenta-soft";
+                  return (
+                    <div
+                      key={`${zone.channel_index}-${zone.third_index}`}
+                      className={`rounded px-2 py-1 text-2xs ${bg}`}
+                      title={zone.label}
+                    >
+                      <div className="text-white/50">{zone.label}</div>
+                      <div className="font-mono">
+                        {delta > 0 ? "+" : ""}
+                        {delta.toFixed(3)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-white/50">
+              Per-zone delta appears after the first edit.
+            </div>
+          )}
+
+          <div>
+            <div className="mb-1 text-2xs uppercase tracking-[0.18em] text-white/40">
+              Raw scenario payload
+            </div>
+            <pre className="max-h-60 overflow-auto rounded bg-black/40 p-2 font-mono text-2xs leading-snug text-white/70">
+              {JSON.stringify(
+                {
+                  formation,
+                  baseline,
+                  current: state,
+                  diff: phi.diff,
+                  defensive_line_height_m: phi.defensive_line_height_m,
+                  zonal: phi.zonal,
+                },
+                null,
+                2,
+              )}
+            </pre>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

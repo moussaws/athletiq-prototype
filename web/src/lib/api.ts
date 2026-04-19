@@ -88,6 +88,12 @@ export type PitchControlResponse = {
 
 export type Point = { x: number; y: number };
 
+export type ScenarioBaseline = {
+  attackers: Point[];
+  defenders: Point[];
+  ball: Point;
+};
+
 export type ScenarioRequest = {
   attackers: Point[];
   defenders: Point[];
@@ -95,6 +101,7 @@ export type ScenarioRequest = {
   grid_rows?: number;
   grid_cols?: number;
   baseline_seed?: number | null;
+  baseline?: ScenarioBaseline | null;
 };
 
 export type ScenarioDiff = {
