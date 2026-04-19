@@ -22,6 +22,7 @@ const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
       { href: "/matches", label: "Match debrief", desc: "Real open-data games" },
       { href: "/cv", label: "Tape view", desc: "Footage → pitch" },
       { href: "/metrics", label: "Metrics lab", desc: "Pressure · xT · DDI" },
+      { href: "/lab", label: "Counterfactual Lab", desc: "Drag a defender, re-see Φ" },
     ],
   },
   {

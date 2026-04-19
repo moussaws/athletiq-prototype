@@ -86,6 +86,48 @@ export type PitchControlResponse = {
   zonal?: PitchZonalSummary | null;
 };
 
+export type Point = { x: number; y: number };
+
+export type ScenarioRequest = {
+  attackers: Point[];
+  defenders: Point[];
+  ball: Point;
+  grid_rows?: number;
+  grid_cols?: number;
+  baseline_seed?: number | null;
+};
+
+export type ScenarioDiff = {
+  delta_phi_mean: number;
+  delta_phi_final_third: number;
+  delta_balance_attacker_pct: number;
+  delta_defensive_line_height_m: number;
+  per_zone_delta: number[];
+  headline: string;
+};
+
+export type ScenarioResponse = {
+  phi: number[][];
+  xs: number[];
+  ys: number[];
+  zonal?: PitchZonalSummary | null;
+  diff?: ScenarioDiff | null;
+  defensive_line_height_m: number;
+};
+
+export type FormationRole = "attacker" | "defender";
+
+export type FormationPresetResponse = {
+  formation: string;
+  role: FormationRole;
+  positions: Point[];
+  ball: Point;
+  valid_formations: string[];
+};
+
+export const VALID_FORMATIONS = ["4-4-2", "4-3-3", "3-5-2", "5-4-1"] as const;
+export type Formation = (typeof VALID_FORMATIONS)[number];
+
 export type PressureResponse = {
   raw_individual: number[];
   raw_collective: number;
