@@ -33,6 +33,7 @@ from athletiq.metrics.pitch_control_zones import (
     THIRD_NAMES,
     ZonalSummary,
 )
+from athletiq.metrics.scenario_xg import scenario_xg
 from athletiq.metrics.types import PITCH_LENGTH_M, PITCH_WIDTH_M
 
 FloatArray = npt.NDArray[np.floating]
@@ -301,6 +302,27 @@ class ScenarioDiff:
     """Plain-English one-line coach verdict describing the biggest change
     plus a net judgement (win / trade-off / loss for the attacker)."""
 
+    baseline_xg_for: float
+    """Baseline attacker expected-threat scalar (see :class:`ScenarioXG`)."""
+
+    baseline_xg_against: float
+    """Baseline defender expected-threat scalar."""
+
+    scenario_xg_for: float
+    """Edited-scenario attacker expected-threat scalar."""
+
+    scenario_xg_against: float
+    """Edited-scenario defender expected-threat scalar."""
+
+    delta_xg_for: float
+    """Attacker xG change (scenario - baseline). Positive = attacker gained threat."""
+
+    delta_xg_against: float
+    """Defender xG change. Positive = defender now more exposed in transition."""
+
+    delta_xg_net: float
+    """Net xG edge delta = ``delta_xg_for - delta_xg_against``."""
+
 
 def diff_scenarios(
     *,
@@ -312,13 +334,16 @@ def diff_scenarios(
     scenario_xs: FloatArray,
     baseline_defenders: FloatArray | list[tuple[float, float]],
     scenario_defenders: FloatArray | list[tuple[float, float]],
+    baseline_ball: tuple[float, float] | None = None,
+    scenario_ball: tuple[float, float] | None = None,
     attacking_direction: AttackingDirection = "+x",
 ) -> ScenarioDiff:
     """Compute the coach-facing delta between two scenarios.
 
     Both scenarios must share the same grid shape and axes so that zonal
-    deltas line up cell-for-cell. Ball position is not used here; xG deltas
-    land in PR 5.
+    deltas line up cell-for-cell. Ball positions are optional but
+    strongly recommended — they drive the ball-proximity kernel on the
+    xG surface (see :mod:`scenario_xg`).
     """
     if baseline_phi.shape != scenario_phi.shape:
         raise ValueError(
@@ -357,11 +382,30 @@ def diff_scenarios(
         float(s.phi_mean - b.phi_mean) for b, s in zip(baseline.zones, scenario.zones, strict=True)
     ]
 
+    base_xg = scenario_xg(
+        baseline_phi,
+        baseline_xs,
+        _baseline_ys_from_phi(baseline_phi, baseline_xs),
+        ball=baseline_ball,
+        attacking_direction=attacking_direction,
+    )
+    cur_xg = scenario_xg(
+        scenario_phi,
+        scenario_xs,
+        _baseline_ys_from_phi(scenario_phi, scenario_xs),
+        ball=scenario_ball,
+        attacking_direction=attacking_direction,
+    )
+    delta_xg_for = cur_xg.xg_for - base_xg.xg_for
+    delta_xg_against = cur_xg.xg_against - base_xg.xg_against
+    delta_xg_net = delta_xg_for - delta_xg_against
+
     headline = _scenario_headline(
         delta_phi_mean=delta_mean,
         delta_phi_final_third=delta_final_third,
         delta_balance=delta_balance,
         delta_line=delta_line,
+        delta_xg_net=delta_xg_net,
         baseline=baseline,
         scenario=scenario,
     )
@@ -373,7 +417,31 @@ def diff_scenarios(
         delta_defensive_line_height_m=delta_line,
         per_zone_delta=per_zone_delta,
         headline=headline,
+        baseline_xg_for=base_xg.xg_for,
+        baseline_xg_against=base_xg.xg_against,
+        scenario_xg_for=cur_xg.xg_for,
+        scenario_xg_against=cur_xg.xg_against,
+        delta_xg_for=delta_xg_for,
+        delta_xg_against=delta_xg_against,
+        delta_xg_net=delta_xg_net,
     )
+
+
+def _baseline_ys_from_phi(phi: FloatArray, xs: FloatArray) -> FloatArray:
+    """Reconstruct the y-axis from a phi grid + its xs axis.
+
+    diff_scenarios doesn't take ys explicitly because the zonal summary
+    already encodes it — but scenario_xg needs the physical y-axis to map
+    cells onto goal-mouth geometry. Rows are uniformly spaced over the
+    pitch width so we regenerate them from phi.shape[0].
+    """
+    xs_1d = np.asarray(xs).reshape(-1)
+    _ = xs_1d  # unused — kept for signature symmetry with scenario_xg
+    rows = phi.shape[0]
+    # Matches pitch_control_surface's ys: linspace(0.5, PITCH_WIDTH_M - 0.5, H).
+    # If we used a rows-aware half-cell formula here, xG from diff_scenarios
+    # would drift from the xG computed directly on the raw ys in the endpoint.
+    return np.linspace(0.5, PITCH_WIDTH_M - 0.5, rows)
 
 
 def _final_third_mask(xs: FloatArray) -> FloatArray:
@@ -391,6 +459,7 @@ def _scenario_headline(
     delta_phi_final_third: float,
     delta_balance: float,
     delta_line: float,
+    delta_xg_net: float,
     baseline: ZonalSummary,
     scenario: ZonalSummary,
 ) -> str:
@@ -402,9 +471,16 @@ def _scenario_headline(
     """
     eps = 0.005
 
-    # Pick the headline lever: defensive-line change if it moved by >= 1 m,
-    # else final-third Φ change, else hottest-attacking-zone change.
-    if abs(delta_line) >= 1.0:
+    # Pick the headline lever: net xG swing if it's the dominant signal,
+    # then defensive-line change (>=1 m), then final-third Φ, then
+    # hottest-attacking-zone change.
+    if abs(delta_xg_net) >= 0.01:
+        direction = "gained" if delta_xg_net > 0 else "gave up"
+        lever = (
+            f"Net xG edge {direction} {abs(delta_xg_net):.3f} "
+            f"(final-third Φ Δ{delta_phi_final_third:+.2f})."
+        )
+    elif abs(delta_line) >= 1.0:
         direction = "pushed up" if delta_line > 0 else "dropped back"
         lever = (
             f"Defensive line {direction} {abs(delta_line):.1f} m "

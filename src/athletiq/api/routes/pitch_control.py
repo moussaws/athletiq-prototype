@@ -12,6 +12,7 @@ from athletiq.data.synthetic import generate_synthetic_snapshot
 from athletiq.metrics import (
     VALID_FORMATIONS,
     ScenarioDiff,
+    ScenarioXG,
     ddi,
     default_ball_position,
     defensive_line_height_m,
@@ -19,6 +20,7 @@ from athletiq.metrics import (
     formation_preset,
     phi_from_positions,
     pitch_control_surface,
+    scenario_xg,
     zonal_summary,
 )
 from athletiq.metrics.pitch_control import PlayerSnapshot
@@ -170,6 +172,18 @@ class Point(BaseModel):
         return (self.x, self.y)
 
 
+class ScenarioBaseline(BaseModel):
+    """Explicit baseline scenario for the Lab's \"since you opened the tool\" diff.
+
+    Preferred over ``baseline_seed`` because a coach's baseline is the formation
+    they loaded, not the demo seed. ``baseline_seed`` stays for backward compat.
+    """
+
+    attackers: list[Point] = Field(..., min_length=1, max_length=11)
+    defenders: list[Point] = Field(..., min_length=1, max_length=11)
+    ball: Point
+
+
 class ScenarioRequest(BaseModel):
     attackers: list[Point] = Field(
         ..., min_length=1, max_length=11, description="Attacker positions (<= 11)."
@@ -184,7 +198,14 @@ class ScenarioRequest(BaseModel):
         default=None,
         description=(
             "If provided, also return a diff against the seeded demo baseline. "
-            "Set to null to skip diffing."
+            "Set to null to skip diffing. Ignored when ``baseline`` is provided."
+        ),
+    )
+    baseline: ScenarioBaseline | None = Field(
+        default=None,
+        description=(
+            "Explicit baseline positions — preferred over baseline_seed. When set "
+            "the response's ``diff`` compares the current positions to this baseline."
         ),
     )
 
@@ -196,6 +217,21 @@ class ScenarioDiffDTO(BaseModel):
     delta_defensive_line_height_m: float
     per_zone_delta: list[float]
     headline: str
+    baseline_xg_for: float
+    baseline_xg_against: float
+    scenario_xg_for: float
+    scenario_xg_against: float
+    delta_xg_for: float
+    delta_xg_against: float
+    delta_xg_net: float
+
+
+class ScenarioXGDTO(BaseModel):
+    """Scenario-level xG scalars returned every request (no baseline needed)."""
+
+    xg_for: float
+    xg_against: float
+    xg_net: float
 
 
 class ScenarioResponse(BaseModel):
@@ -205,6 +241,7 @@ class ScenarioResponse(BaseModel):
     zonal: ZonalSummaryDTO | None = None
     diff: ScenarioDiffDTO | None = None
     defensive_line_height_m: float
+    xg: ScenarioXGDTO
 
 
 def _scenario_diff_dto(d: ScenarioDiff) -> ScenarioDiffDTO:
@@ -215,6 +252,21 @@ def _scenario_diff_dto(d: ScenarioDiff) -> ScenarioDiffDTO:
         delta_defensive_line_height_m=d.delta_defensive_line_height_m,
         per_zone_delta=list(d.per_zone_delta),
         headline=d.headline,
+        baseline_xg_for=d.baseline_xg_for,
+        baseline_xg_against=d.baseline_xg_against,
+        scenario_xg_for=d.scenario_xg_for,
+        scenario_xg_against=d.scenario_xg_against,
+        delta_xg_for=d.delta_xg_for,
+        delta_xg_against=d.delta_xg_against,
+        delta_xg_net=d.delta_xg_net,
+    )
+
+
+def _xg_dto(x: ScenarioXG) -> ScenarioXGDTO:
+    return ScenarioXGDTO(
+        xg_for=x.xg_for,
+        xg_against=x.xg_against,
+        xg_net=x.xg_net,
     )
 
 
@@ -246,15 +298,33 @@ def compute_scenario(req: ScenarioRequest) -> ScenarioResponse:
         zonal = None
 
     line_height = defensive_line_height_m(dfn)
+    xg = scenario_xg(phi, xs, ys, ball=ball)
 
     diff: ScenarioDiffDTO | None = None
-    if req.baseline_seed is not None and summary is not None:
-        baseline_players = generate_synthetic_snapshot(seed=req.baseline_seed)
-        base_phi, base_xx, base_yy = pitch_control_surface(
-            baseline_players, grid_shape=(req.grid_rows, req.grid_cols)
-        )
+    if summary is not None and (req.baseline is not None or req.baseline_seed is not None):
+        if req.baseline is not None:
+            base_atk = np.array([[p.x, p.y] for p in req.baseline.attackers], dtype=np.float64)
+            base_def_xy = np.array([[p.x, p.y] for p in req.baseline.defenders], dtype=np.float64)
+            base_ball = (req.baseline.ball.x, req.baseline.ball.y)
+            base_phi, base_xs_1d, base_ys_1d = phi_from_positions(
+                base_atk,
+                base_def_xy,
+                base_ball,
+                grid_shape=(req.grid_rows, req.grid_cols),
+            )
+        else:
+            baseline_players = generate_synthetic_snapshot(seed=req.baseline_seed)
+            base_phi_raw, base_xx_2d, base_yy_2d = pitch_control_surface(
+                baseline_players, grid_shape=(req.grid_rows, req.grid_cols)
+            )
+            base_phi = np.asarray(base_phi_raw)
+            base_xs_1d = base_xx_2d[0]
+            base_ys_1d = base_yy_2d[:, 0]
+            base_def_xy = np.array(
+                [[p.x, p.y] for p in baseline_players if p.team == 1], dtype=np.float64
+            )
         try:
-            base_summary = zonal_summary(base_phi, base_xx[0], base_yy[:, 0])
+            base_summary = zonal_summary(base_phi, base_xs_1d, base_ys_1d)
         except ValueError as exc:
             raise HTTPException(
                 status_code=422,
@@ -262,18 +332,17 @@ def compute_scenario(req: ScenarioRequest) -> ScenarioResponse:
                     "grid too small for baseline diff — minimum grid_rows=4, grid_cols=3 required"
                 ),
             ) from exc
-        base_def_xy = np.array(
-            [[p.x, p.y] for p in baseline_players if p.team == 1], dtype=np.float64
-        )
         d = diff_scenarios(
             baseline=base_summary,
             scenario=summary,
             baseline_phi=base_phi,
             scenario_phi=phi,
-            baseline_xs=base_xx[0],
+            baseline_xs=base_xs_1d,
             scenario_xs=xs,
             baseline_defenders=base_def_xy,
             scenario_defenders=dfn,
+            baseline_ball=base_ball if req.baseline is not None else (52.5, 34.0),
+            scenario_ball=ball,
         )
         diff = _scenario_diff_dto(d)
 
@@ -284,6 +353,7 @@ def compute_scenario(req: ScenarioRequest) -> ScenarioResponse:
         zonal=zonal,
         diff=diff,
         defensive_line_height_m=line_height,
+        xg=_xg_dto(xg),
     )
 
 
