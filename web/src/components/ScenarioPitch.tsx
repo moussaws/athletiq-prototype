@@ -8,7 +8,7 @@ import type { Point } from "@/lib/api";
  * Draggable-dot pitch with a Φ heatmap underlay.
  *
  * Coordinates are in metres on a 105 × 68 pitch. Attackers are rendered as
- * cyan dots, defenders as magenta. Both teams can be dragged with the mouse;
+ * green dots, defenders as magenta. Both teams can be dragged with the mouse;
  * keyboard fallback (arrow keys when a dot is focused) nudges the selected
  * dot by 1 metre. Drag-end fires ``onChange`` with the complete new state so
  * the parent can debounce a Φ recompute.

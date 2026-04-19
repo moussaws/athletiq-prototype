@@ -443,3 +443,79 @@ def test_preset_then_scenario_round_trip() -> None:
     body = r.json()
     assert body["zonal"] is not None
     assert body["diff"] is not None
+
+
+def test_scenario_endpoint_accepts_explicit_baseline() -> None:
+    """Lab workflow: coach captures the formation preset as baseline, then
+    pushes edited positions and the server returns the delta against that
+    explicit baseline rather than a seeded demo snapshot."""
+    atk = client.get(
+        "/api/pitch-control/scenario/preset",
+        params={"formation": "4-3-3", "role": "attacker"},
+    ).json()
+    dfn = client.get(
+        "/api/pitch-control/scenario/preset",
+        params={"formation": "4-3-3", "role": "defender"},
+    ).json()
+    baseline = {
+        "attackers": atk["positions"],
+        "defenders": dfn["positions"],
+        "ball": atk["ball"],
+    }
+    # Current = baseline with every defender pushed 10 m back toward own goal.
+    current_defenders = [
+        {"x": max(0.0, p["x"] - 10.0), "y": p["y"]} for p in dfn["positions"]
+    ]
+    r = client.post(
+        "/api/pitch-control/scenario",
+        json={
+            "attackers": atk["positions"],
+            "defenders": current_defenders,
+            "ball": atk["ball"],
+            "baseline": baseline,
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["diff"] is not None
+    diff = body["diff"]
+    # Pushing the defensive line 10 m deeper must *increase* the line height
+    # relative to baseline (higher number = press higher = farther from own goal).
+    assert diff["delta_defensive_line_height_m"] == pytest.approx(10.0, abs=0.5)
+    # Headline should be non-empty, human-readable, and reflect the change.
+    assert isinstance(diff["headline"], str) and diff["headline"].strip()
+
+
+def test_scenario_endpoint_baseline_overrides_baseline_seed() -> None:
+    """If both ``baseline`` and ``baseline_seed`` are supplied, the explicit
+    ``baseline`` wins (documented in the field description)."""
+    preset = client.get(
+        "/api/pitch-control/scenario/preset",
+        params={"formation": "4-3-3", "role": "attacker"},
+    ).json()
+    dfn_preset = client.get(
+        "/api/pitch-control/scenario/preset",
+        params={"formation": "4-3-3", "role": "defender"},
+    ).json()
+    baseline = {
+        "attackers": preset["positions"],
+        "defenders": dfn_preset["positions"],
+        "ball": preset["ball"],
+    }
+    # Diff of the preset against itself: every delta must be ~0.
+    r = client.post(
+        "/api/pitch-control/scenario",
+        json={
+            "attackers": preset["positions"],
+            "defenders": dfn_preset["positions"],
+            "ball": preset["ball"],
+            "baseline": baseline,
+            "baseline_seed": 0,  # would produce non-zero deltas if honored
+        },
+    )
+    assert r.status_code == 200
+    diff = r.json()["diff"]
+    assert diff is not None
+    assert diff["delta_phi_mean"] == pytest.approx(0.0, abs=1e-6)
+    assert diff["delta_defensive_line_height_m"] == pytest.approx(0.0, abs=1e-6)
+    assert diff["delta_balance_attacker_pct"] == pytest.approx(0.0, abs=1e-6)
