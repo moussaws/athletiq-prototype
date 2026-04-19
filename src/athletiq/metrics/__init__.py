@@ -22,6 +22,15 @@ from athletiq.metrics.pressure import (
     raw_individual_pressure,
 )
 from athletiq.metrics.retention import pabr
+from athletiq.metrics.scenario import (
+    VALID_FORMATIONS,
+    ScenarioDiff,
+    default_ball_position,
+    defensive_line_height_m,
+    diff_scenarios,
+    formation_preset,
+    phi_from_positions,
+)
 from athletiq.metrics.xt import (
     default_xt_grid,
     progressive_carry_xt,
@@ -29,14 +38,21 @@ from athletiq.metrics.xt import (
 )
 
 __all__ = [
+    "ScenarioDiff",
+    "VALID_FORMATIONS",
     "Zone",
     "ZonalSummary",
     "collective_pressure",
     "ddi",
+    "default_ball_position",
     "default_xt_grid",
+    "defensive_line_height_m",
+    "diff_scenarios",
+    "formation_preset",
     "individual_unit_pressure",
     "mean_collective_pressure",
     "pabr",
+    "phi_from_positions",
     "pitch_control_surface",
     "progressive_carry_xt",
     "raw_individual_pressure",
