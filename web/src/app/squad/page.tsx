@@ -9,6 +9,8 @@ import {
   type SavedSquad,
   type SquadResponse,
 } from "@/lib/api";
+import { LAB_433_FORMATION, lineupFromXi } from "@/lib/labMapping";
+import { buildLabHintUrl } from "@/lib/labShare";
 import {
   SQUAD_PHILOSOPHIES,
   type SquadPhilosophy,
@@ -476,6 +478,16 @@ export default function SquadPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm font-medium">Optimal XI</div>
               <div className="flex items-center gap-2">
+                <a
+                  href={buildLabHintUrl(
+                    LAB_433_FORMATION,
+                    lineupFromXi(squad.assignments),
+                  )}
+                  className="rounded border border-accent/40 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition hover:bg-accent/20"
+                  title="Drop this XI onto the Tactical Counterfactual Lab pitch"
+                >
+                  Open in Lab →
+                </a>
                 <input
                   type="text"
                   placeholder="squad name"
