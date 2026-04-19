@@ -438,11 +438,10 @@ def _baseline_ys_from_phi(phi: FloatArray, xs: FloatArray) -> FloatArray:
     xs_1d = np.asarray(xs).reshape(-1)
     _ = xs_1d  # unused — kept for signature symmetry with scenario_xg
     rows = phi.shape[0]
-    return np.linspace(
-        PITCH_WIDTH_M / (2 * rows),
-        PITCH_WIDTH_M - PITCH_WIDTH_M / (2 * rows),
-        rows,
-    )
+    # Matches pitch_control_surface's ys: linspace(0.5, PITCH_WIDTH_M - 0.5, H).
+    # If we used a rows-aware half-cell formula here, xG from diff_scenarios
+    # would drift from the xG computed directly on the raw ys in the endpoint.
+    return np.linspace(0.5, PITCH_WIDTH_M - 0.5, rows)
 
 
 def _final_third_mask(xs: FloatArray) -> FloatArray:
@@ -478,7 +477,7 @@ def _scenario_headline(
     if abs(delta_xg_net) >= 0.01:
         direction = "gained" if delta_xg_net > 0 else "gave up"
         lever = (
-            f"Net xG edge {direction} {abs(delta_xg_net):+.3f} "
+            f"Net xG edge {direction} {abs(delta_xg_net):.3f} "
             f"(final-third Φ Δ{delta_phi_final_third:+.2f})."
         )
     elif abs(delta_line) >= 1.0:

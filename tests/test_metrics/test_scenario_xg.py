@@ -309,3 +309,65 @@ def test_api_scenario_returns_xg_diff_when_baseline_provided() -> None:
     # pushing attackers into the box must raise attacker xG.
     assert diff["delta_xg_for"] > 0
     assert diff["delta_xg_net"] > 0
+
+
+def test_api_scenario_top_level_xg_matches_diff_scenario_xg() -> None:
+    """Regression: top-level xg and diff.scenario_xg_* must describe the same
+    scenario on the same y-axis grid. Pre-fix _baseline_ys_from_phi used a
+    rows-aware half-cell formula that drifted from pitch_control_surface's
+    linspace(0.5, PITCH_WIDTH_M - 0.5, H).
+    """
+    baseline = {
+        "attackers": [{"x": 40, "y": 34}, {"x": 60, "y": 20}, {"x": 60, "y": 48}],
+        "defenders": [{"x": 90, "y": 34}, {"x": 90, "y": 20}, {"x": 90, "y": 48}],
+        "ball": {"x": 52.5, "y": 34},
+    }
+    body = {
+        "attackers": [{"x": 95, "y": 34}, {"x": 95, "y": 20}, {"x": 95, "y": 48}],
+        "defenders": [{"x": 90, "y": 34}, {"x": 90, "y": 20}, {"x": 90, "y": 48}],
+        "ball": {"x": 95, "y": 34},
+        "grid_rows": 34,
+        "grid_cols": 52,
+        "baseline": baseline,
+    }
+    r = client.post("/api/pitch-control/scenario", json=body)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    top = data["xg"]
+    diff = data["diff"]
+    assert top["xg_for"] == pytest.approx(diff["scenario_xg_for"], abs=1e-9)
+    assert top["xg_against"] == pytest.approx(diff["scenario_xg_against"], abs=1e-9)
+
+
+def test_headline_net_xg_loss_does_not_use_plus_sign() -> None:
+    """Regression: a negative net-xG swing must not render as '+' anything.
+
+    Pre-fix the format string was f'{abs(delta_xg_net):+.3f}' which forced
+    a '+' prefix on a non-negative absolute value, producing contradictory
+    copy like 'gave up +0.015'.
+    """
+    # Attacker loses the ball in their defensive half → xg_against dominates.
+    base_atk = [(70, 34), (70, 24), (70, 44)]
+    base_dfn = [(10, 30), (10, 34), (10, 38)]
+    cur_atk = [(55, 34), (55, 24), (55, 44)]
+    cur_dfn = base_dfn
+    base_ball = (10.0, 34.0)
+    cur_ball = (10.0, 34.0)
+    base_phi, base_xs, base_ys = phi_from_positions(base_atk, base_dfn, base_ball)
+    cur_phi, cur_xs, cur_ys = phi_from_positions(cur_atk, cur_dfn, cur_ball)
+    base_sum = zonal_summary(base_phi, base_xs, base_ys)
+    cur_sum = zonal_summary(cur_phi, cur_xs, cur_ys)
+    d = diff_scenarios(
+        baseline=base_sum,
+        scenario=cur_sum,
+        baseline_phi=base_phi,
+        scenario_phi=cur_phi,
+        baseline_xs=base_xs,
+        scenario_xs=cur_xs,
+        baseline_defenders=np.array(base_dfn, dtype=float),
+        scenario_defenders=np.array(cur_dfn, dtype=float),
+        baseline_ball=base_ball,
+        scenario_ball=cur_ball,
+    )
+    if d.headline.startswith("Net xG edge gave up"):
+        assert "+" not in d.headline.split(".")[0], d.headline
