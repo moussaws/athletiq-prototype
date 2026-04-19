@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import PlayerPicker from "@/components/PlayerPicker";
 import ScenarioDiffCards from "@/components/ScenarioDiffCards";
 import ScenarioHeadline from "@/components/ScenarioHeadline";
 import ScenarioPitch from "@/components/ScenarioPitch";
@@ -10,15 +11,25 @@ import {
   VALID_FORMATIONS,
   type Formation,
   type FormationPresetResponse,
+  type Player,
   type Point,
   type ScenarioResponse,
 } from "@/lib/api";
+import {
+  buildLabUrl,
+  decodeLabShare,
+  LAB_SHARE_PARAM,
+  parseLabHint,
+  type LabLineup,
+} from "@/lib/labShare";
 
 type ScenarioState = {
   attackers: Point[];
   defenders: Point[];
   ball: Point;
 };
+
+const EMPTY_LINEUP: LabLineup = Array.from({ length: 11 }, () => null);
 
 const PITCH_LENGTH = 105;
 const DEFAULT_GRID = { grid_rows: 34, grid_cols: 52 };
@@ -69,9 +80,41 @@ function shiftDefenderLine(defenders: Point[], delta: number): Point[] {
 }
 
 export default function ScenarioLab() {
-  const [formation, setFormation] = useState<Formation>("4-3-3");
+  // Hydrate formation & lineup from the ``?s=…`` share link on first render
+  // so deep-links from /squad & /recruit land in the exact scenario they
+  // encoded instead of flashing through the 4-3-3 default.
+  const initialShare = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const raw = new URLSearchParams(window.location.search).get(
+      LAB_SHARE_PARAM,
+    );
+    if (!raw) return null;
+    return decodeLabShare(raw);
+  }, []);
+
+  // Lightweight hint params from /squad and /recruit — just formation
+  // + lineup, no coordinates. The Lab seeds coordinates from the
+  // formation preset and overlays the lineup on top.
+  const initialHint = useMemo(() => {
+    if (typeof window === "undefined") return { formation: null, lineup: null };
+    if (initialShare) return { formation: null, lineup: null };
+    return parseLabHint(new URLSearchParams(window.location.search));
+  }, [initialShare]);
+
+  const [formation, setFormation] = useState<Formation>(
+    initialShare?.formation ?? initialHint.formation ?? "4-3-3",
+  );
   const [baseline, setBaseline] = useState<ScenarioState | null>(null);
   const [state, setState] = useState<ScenarioState | null>(null);
+  const [lineup, setLineup] = useState<LabLineup>(
+    initialShare?.lineup ?? initialHint.lineup ?? EMPTY_LINEUP,
+  );
+  const [lineupPlayers, setLineupPlayers] = useState<
+    Record<string, Player>
+  >({});
+  const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+  const [copyFlash, setCopyFlash] = useState<"idle" | "copied">("idle");
+  const didHydrateFromShare = useRef(false);
   const [phi, setPhi] = useState<ScenarioResponse | null>(null);
   // Remember the initial Φ that belongs to the baseline so the diff cards
   // can show "baseline → current" values after the first edit.
@@ -100,19 +143,44 @@ export default function ScenarioLab() {
           fetchPreset(formation, "attacker"),
           fetchPreset(formation, "defender"),
         ]);
-        const init: ScenarioState = {
+        // Share-link state takes precedence on first load so a ``?s=…``
+        // deep-link lands on the exact coordinates encoded by the sender.
+        // Subsequent formation changes fall through to the preset.
+        const usingShare =
+          !didHydrateFromShare.current &&
+          initialShare !== null &&
+          initialShare.formation === formation;
+        const init: ScenarioState = usingShare
+          ? {
+              attackers: initialShare!.attackers,
+              defenders: initialShare!.defenders,
+              ball: initialShare!.ball,
+            }
+          : {
+              attackers: atk.positions,
+              defenders: dfn.positions,
+              ball: atk.ball,
+            };
+        // Baseline is always the formation preset so the coach's diff
+        // always reads "since this formation loaded" — even when the link
+        // arrives pre-edited. That's a useful read on a shared scenario.
+        const preset: ScenarioState = {
           attackers: atk.positions,
           defenders: dfn.positions,
           ball: atk.ball,
         };
-        // Initial load: no baseline field, so `resp.diff` stays null.
-        const resp = await postScenario(init, null);
+        const baselineResp = await postScenario(preset, null);
         if (cancelled) return;
-        setBaseline(init);
+        const resp = usingShare
+          ? await postScenario(init, preset)
+          : baselineResp;
+        if (cancelled) return;
+        setBaseline(preset);
         setState(init);
         setPhi(resp);
-        setBaselinePhi(resp);
+        setBaselinePhi(baselineResp);
         setLineNudge(0);
+        if (usingShare) didHydrateFromShare.current = true;
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : String(e));
@@ -134,7 +202,9 @@ export default function ScenarioLab() {
       // strictly ignored by the `generation.current === gen` guards below.
       generation.current += 1;
     };
-  }, [formation]);
+    // `initialShare` is memoised once on mount so it is stable across renders,
+    // but eslint-plugin-react-hooks requires it in the dep array regardless.
+  }, [formation, initialShare]);
 
   // Debounced recompute on state change. Every request after the initial
   // load pins the current baseline so the backend returns a proper diff.
@@ -186,6 +256,94 @@ export default function ScenarioLab() {
     setLineNudge(newDelta);
     applyPatch({ ...state, defenders: nextDef });
   }
+
+  // Fetch Player metadata for every non-null lineup id we haven't yet
+  // resolved so the Lineup panel can show real names, not just ids.
+  useEffect(() => {
+    const missing = lineup.filter(
+      (id): id is string => !!id && !(id in lineupPlayers),
+    );
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const updates: Record<string, Player> = {};
+      for (const id of missing) {
+        try {
+          const r = await fetch(
+            `${API_BASE}/api/players/${encodeURIComponent(id)}`,
+            { cache: "no-store" },
+          );
+          if (!r.ok) continue;
+          const data = (await r.json()) as Player;
+          updates[id] = data;
+        } catch {
+          // ignore — the slot just falls back to showing the id
+        }
+      }
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setLineupPlayers((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lineup, lineupPlayers]);
+
+  // Sync the current scenario into the URL without reloading so the coach
+  // can grab the address bar at any moment and share what's on screen.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!state) return;
+    const url = buildLabUrl({
+      formation,
+      attackers: state.attackers,
+      defenders: state.defenders,
+      ball: state.ball,
+      lineup,
+    });
+    const current = window.location.pathname + window.location.search;
+    if (current !== url) {
+      window.history.replaceState(null, "", url);
+    }
+  }, [formation, state, lineup]);
+
+  const onPick = (p: Player | null) => {
+    if (pickerSlot === null) return;
+    const slot = pickerSlot;
+    setLineup((prev) => {
+      const next = [...prev];
+      next[slot] = p?.player_id ?? null;
+      return next;
+    });
+    if (p) setLineupPlayers((prev) => ({ ...prev, [p.player_id]: p }));
+  };
+
+  const resetLineup = () => setLineup(EMPTY_LINEUP);
+
+  const shareUrl = useMemo(() => {
+    if (!state || typeof window === "undefined") return "";
+    return buildLabUrl(
+      {
+        formation,
+        attackers: state.attackers,
+        defenders: state.defenders,
+        ball: state.ball,
+        lineup,
+      },
+      window.location.origin,
+    );
+  }, [formation, state, lineup]);
+
+  const onCopyShare = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopyFlash("copied");
+      window.setTimeout(() => setCopyFlash("idle"), 1500);
+    } catch {
+      // Fall back silently — the URL is already in the address bar.
+    }
+  };
 
   // Whole-pitch & final-third Φ means are derived from the grid so we
   // don't need a second endpoint call just for the diff-card values.
@@ -316,6 +474,14 @@ export default function ScenarioLab() {
         >
           Reset to baseline
         </button>
+        <button
+          type="button"
+          onClick={onCopyShare}
+          className="rounded border border-accent/40 bg-accent/10 px-3 py-1 text-sm text-accent transition hover:bg-accent/20"
+          title="Copy a link to the current scenario (baseline + edits + lineup)"
+        >
+          {copyFlash === "copied" ? "Link copied ✓" : "Copy share link"}
+        </button>
         <div className="ml-auto text-2xs font-mono tabular-nums text-white/40">
           {recomputing ? "re-computing…" : lastElapsed !== null ? `${Math.round(lastElapsed)} ms` : "ready"}
         </div>
@@ -396,11 +562,89 @@ export default function ScenarioLab() {
         </aside>
       </div>
 
+      {/* Lineup: swap any of the 11 attacker slots for a real FBRef player.
+          Kept in its own section below the pitch so the pitch itself stays
+          uncluttered; the picker is a separate modal. */}
+      <section className="flex flex-col gap-3 rounded border border-white/10 bg-white/5 p-4">
+        <header className="flex items-baseline justify-between gap-3">
+          <div>
+            <div className="text-2xs uppercase tracking-[0.2em] text-white/40">
+              Attacker lineup
+            </div>
+            <div className="text-sm text-white/70">
+              Swap any slot for a real FBRef Big-5 2023-24 player. Lineup
+              travels in the share link; Φ math is unaffected.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={resetLineup}
+            disabled={lineup.every((id) => id === null)}
+            className="rounded border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Clear lineup
+          </button>
+        </header>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          {state.attackers.map((pos, idx) => {
+            const id = lineup[idx];
+            const p = id ? lineupPlayers[id] ?? null : null;
+            const label = p?.name ?? (id ? id : "Empty");
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setPickerSlot(idx)}
+                className="flex flex-col items-start gap-1 rounded border border-white/10 bg-black/20 px-3 py-2 text-left text-xs transition hover:border-accent/40 hover:bg-accent/5"
+                aria-label={`Edit attacker slot ${idx + 1}${p ? `, currently ${p.name}` : ""}`}
+              >
+                <div className="flex w-full items-baseline justify-between gap-2">
+                  <span className="font-mono text-2xs tabular-nums text-white/40">
+                    #{idx + 1}
+                  </span>
+                  {p ? (
+                    <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-white/60">
+                      {p.position}
+                    </span>
+                  ) : null}
+                </div>
+                <div
+                  className={`truncate font-medium ${
+                    p ? "text-white" : "text-white/40"
+                  }`}
+                >
+                  {label}
+                </div>
+                <div className="text-2xs text-white/40">
+                  {p
+                    ? `${p.nationality} · ${p.age}y · €${p.market_value_m.toFixed(
+                        1,
+                      )}M`
+                    : `x=${pos.x.toFixed(0)} m · y=${pos.y.toFixed(0)} m`}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {/* four-card diff strip — baseline → current → Δ for each headline metric */}
       <ScenarioDiffCards
         diff={phi.diff ?? null}
         baseline={baselineSnapshot}
         current={currentSnapshot}
+      />
+
+      <PlayerPicker
+        open={pickerSlot !== null}
+        slotIndex={pickerSlot}
+        current={
+          pickerSlot !== null && lineup[pickerSlot]
+            ? lineupPlayers[lineup[pickerSlot]!] ?? null
+            : null
+        }
+        onClose={() => setPickerSlot(null)}
+        onSelect={onPick}
       />
 
       <p className="text-2xs text-white/40">

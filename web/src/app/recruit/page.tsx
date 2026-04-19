@@ -8,6 +8,8 @@ import {
   type PlaystyleInfo,
   type RecruitResponse,
 } from "@/lib/api";
+import { LAB_433_FORMATION, lineupFromCandidate } from "@/lib/labMapping";
+import { buildLabHintUrl } from "@/lib/labShare";
 
 const POSITIONS = ["GK", "CB", "FB", "DM", "CM", "AM", "WG", "ST"];
 
@@ -179,9 +181,8 @@ export default function RecruitPage() {
           </h2>
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             {result.candidates.map((c, i) => (
-              <Link
+              <div
                 key={c.player_id}
-                href={`/scouting/${c.player_id}`}
                 className="rounded-lg border border-white/10 bg-white/5 p-4 transition hover:border-accent/50"
               >
                 <div className="flex items-center justify-between">
@@ -203,10 +204,26 @@ export default function RecruitPage() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-white/70">
-                  {c.fit_summary}
+                <div className="mt-3 text-xs text-white/70">{c.fit_summary}</div>
+                <div className="mt-3 flex items-center gap-3 text-xs">
+                  <Link
+                    href={`/scouting/${c.player_id}`}
+                    className="text-white/60 underline-offset-2 hover:text-white hover:underline"
+                  >
+                    Scouting profile →
+                  </Link>
+                  <a
+                    href={buildLabHintUrl(
+                      LAB_433_FORMATION,
+                      lineupFromCandidate(c.player_id, c.position),
+                    )}
+                    className="rounded border border-accent/40 bg-accent/10 px-2 py-1 font-medium text-accent transition hover:bg-accent/20"
+                    title="Drop this player into a 4-3-3 and open the Tactical Counterfactual Lab"
+                  >
+                    Open in Lab →
+                  </a>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
 
