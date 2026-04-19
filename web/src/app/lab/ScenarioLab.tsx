@@ -391,6 +391,9 @@ export default function ScenarioLab() {
       phi_final_third: stats.phi_final_third,
       balance_attacker_pct: phi?.zonal?.balance_attacker_pct ?? 50,
       defensive_line_height_m: phi?.defensive_line_height_m ?? 0,
+      xg_for: phi?.xg?.xg_for ?? 0,
+      xg_against: phi?.xg?.xg_against ?? 0,
+      xg_net: phi?.xg?.xg_net ?? 0,
     };
   }, [phi, phiStats]);
 

@@ -111,6 +111,19 @@ export type ScenarioDiff = {
   delta_defensive_line_height_m: number;
   per_zone_delta: number[];
   headline: string;
+  baseline_xg_for: number;
+  baseline_xg_against: number;
+  scenario_xg_for: number;
+  scenario_xg_against: number;
+  delta_xg_for: number;
+  delta_xg_against: number;
+  delta_xg_net: number;
+};
+
+export type ScenarioXG = {
+  xg_for: number;
+  xg_against: number;
+  xg_net: number;
 };
 
 export type ScenarioResponse = {
@@ -120,6 +133,7 @@ export type ScenarioResponse = {
   zonal?: PitchZonalSummary | null;
   diff?: ScenarioDiff | null;
   defensive_line_height_m: number;
+  xg: ScenarioXG;
 };
 
 export type FormationRole = "attacker" | "defender";

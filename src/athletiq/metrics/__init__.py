@@ -31,6 +31,12 @@ from athletiq.metrics.scenario import (
     formation_preset,
     phi_from_positions,
 )
+from athletiq.metrics.scenario_xg import (
+    ScenarioXG,
+    geometric_xg,
+    scenario_xg,
+    xg_surface,
+)
 from athletiq.metrics.xt import (
     default_xt_grid,
     progressive_carry_xt,
@@ -39,6 +45,7 @@ from athletiq.metrics.xt import (
 
 __all__ = [
     "ScenarioDiff",
+    "ScenarioXG",
     "VALID_FORMATIONS",
     "Zone",
     "ZonalSummary",
@@ -49,6 +56,7 @@ __all__ = [
     "defensive_line_height_m",
     "diff_scenarios",
     "formation_preset",
+    "geometric_xg",
     "individual_unit_pressure",
     "mean_collective_pressure",
     "pabr",
@@ -56,6 +64,8 @@ __all__ = [
     "pitch_control_surface",
     "progressive_carry_xt",
     "raw_individual_pressure",
+    "scenario_xg",
+    "xg_surface",
     "xt_value_at",
     "zonal_summary",
 ]

@@ -30,6 +30,9 @@ export type ScenarioDiffCardsProps = {
     phi_final_third: number;
     balance_attacker_pct: number;
     defensive_line_height_m: number;
+    xg_for: number;
+    xg_against: number;
+    xg_net: number;
   };
 };
 
@@ -111,52 +114,89 @@ export default function ScenarioDiffCards({
     delta_defensive_line_height_m: 0,
     per_zone_delta: [],
     headline: "",
+    baseline_xg_for: current.xg_for,
+    baseline_xg_against: current.xg_against,
+    scenario_xg_for: current.xg_for,
+    scenario_xg_against: current.xg_against,
+    delta_xg_for: 0,
+    delta_xg_against: 0,
+    delta_xg_net: 0,
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Card
-        title="Φ mean"
-        explainer="Whole-pitch attacker dominance"
-        baseline={baseline.phi_mean.toFixed(3)}
-        current={current.phi_mean.toFixed(3)}
-        delta={fmtSigned(d.delta_phi_mean, 3)}
-        tone={tone(d.delta_phi_mean, 1e-3)}
-      />
-      <Card
-        title="Φ final third"
-        explainer="Attacker dominance in the box (x ≥ 70 m)"
-        baseline={baseline.phi_final_third.toFixed(3)}
-        current={current.phi_final_third.toFixed(3)}
-        delta={fmtSigned(d.delta_phi_final_third, 3)}
-        tone={tone(d.delta_phi_final_third, 1e-3)}
-      />
-      <Card
-        title="Balance"
-        explainer="Share of the pitch the attacker controls"
-        baseline={`${baseline.balance_attacker_pct.toFixed(0)}%`}
-        current={`${current.balance_attacker_pct.toFixed(0)}%`}
-        delta={`${fmtSignedInt(d.delta_balance_attacker_pct)}%`}
-        tone={tone(d.delta_balance_attacker_pct, 0.5)}
-      />
-      <Card
-        title="Def-line height"
-        explainer="Higher = pressing further from own goal"
-        baseline={`${baseline.defensive_line_height_m.toFixed(1)} m`}
-        current={`${current.defensive_line_height_m.toFixed(1)} m`}
-        delta={`${fmtSigned(d.delta_defensive_line_height_m, 1)} m`}
-        // Higher def-line = defender pressing higher = "pos" from def POV,
-        // but from attacker-colour semantics that's magenta (def gains). We
-        // label it neutral-ish: the sign just tells you which way the block
-        // moved; the headline provides the verdict.
-        tone={
-          Math.abs(d.delta_defensive_line_height_m) < 0.5
-            ? "neutral"
-            : d.delta_defensive_line_height_m > 0
-              ? "neg"
-              : "pos"
-        }
-      />
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Card
+          title="Φ mean"
+          explainer="Whole-pitch attacker dominance"
+          baseline={baseline.phi_mean.toFixed(3)}
+          current={current.phi_mean.toFixed(3)}
+          delta={fmtSigned(d.delta_phi_mean, 3)}
+          tone={tone(d.delta_phi_mean, 1e-3)}
+        />
+        <Card
+          title="Φ final third"
+          explainer="Attacker dominance in the box (x ≥ 70 m)"
+          baseline={baseline.phi_final_third.toFixed(3)}
+          current={current.phi_final_third.toFixed(3)}
+          delta={fmtSigned(d.delta_phi_final_third, 3)}
+          tone={tone(d.delta_phi_final_third, 1e-3)}
+        />
+        <Card
+          title="Balance"
+          explainer="Share of the pitch the attacker controls"
+          baseline={`${baseline.balance_attacker_pct.toFixed(0)}%`}
+          current={`${current.balance_attacker_pct.toFixed(0)}%`}
+          delta={`${fmtSignedInt(d.delta_balance_attacker_pct)}%`}
+          tone={tone(d.delta_balance_attacker_pct, 0.5)}
+        />
+        <Card
+          title="Def-line height"
+          explainer="Higher = pressing further from own goal"
+          baseline={`${baseline.defensive_line_height_m.toFixed(1)} m`}
+          current={`${current.defensive_line_height_m.toFixed(1)} m`}
+          delta={`${fmtSigned(d.delta_defensive_line_height_m, 1)} m`}
+          // Higher def-line = defender pressing higher = "pos" from def POV,
+          // but from attacker-colour semantics that's magenta (def gains). We
+          // label it neutral-ish: the sign just tells you which way the block
+          // moved; the headline provides the verdict.
+          tone={
+            Math.abs(d.delta_defensive_line_height_m) < 0.5
+              ? "neutral"
+              : d.delta_defensive_line_height_m > 0
+                ? "neg"
+                : "pos"
+          }
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Card
+          title="xG for (attack)"
+          explainer="Geometric xG × Φ, ball-weighted. Attacker threat."
+          baseline={d.baseline_xg_for.toFixed(3)}
+          current={current.xg_for.toFixed(3)}
+          delta={fmtSigned(d.delta_xg_for, 3)}
+          tone={tone(d.delta_xg_for, 1e-3)}
+        />
+        <Card
+          title="xG against (counter)"
+          explainer="Geometric xG × (1-Φ), ball-weighted. Defender's counter-threat."
+          baseline={d.baseline_xg_against.toFixed(3)}
+          current={current.xg_against.toFixed(3)}
+          delta={fmtSigned(d.delta_xg_against, 3)}
+          // rising counter-threat is bad for the attacker (magenta),
+          // falling counter-threat is good (accent) — sign inverted.
+          tone={tone(-d.delta_xg_against, 1e-3)}
+        />
+        <Card
+          title="Net xG edge"
+          explainer="xG for − xG against. Positive = attacker's net advantage."
+          baseline={fmtSigned(d.baseline_xg_for - d.baseline_xg_against, 3)}
+          current={fmtSigned(current.xg_net, 3)}
+          delta={fmtSigned(d.delta_xg_net, 3)}
+          tone={tone(d.delta_xg_net, 1e-3)}
+        />
+      </div>
     </div>
   );
 }

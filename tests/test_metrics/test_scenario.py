@@ -463,9 +463,7 @@ def test_scenario_endpoint_accepts_explicit_baseline() -> None:
         "ball": atk["ball"],
     }
     # Current = baseline with every defender pushed 10 m back toward own goal.
-    current_defenders = [
-        {"x": max(0.0, p["x"] - 10.0), "y": p["y"]} for p in dfn["positions"]
-    ]
+    current_defenders = [{"x": max(0.0, p["x"] - 10.0), "y": p["y"]} for p in dfn["positions"]]
     r = client.post(
         "/api/pitch-control/scenario",
         json={
