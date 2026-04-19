@@ -38,6 +38,9 @@ export default function PlayerPicker({
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Lazy-fetch the first time the modal opens in this page session.
+  // `loading` is intentionally NOT in the deps: toggling it would re-run
+  // this effect and cancel its own in-flight fetch under StrictMode, leaving
+  // `loading=true` pinned forever. We still read it via closure for the guard.
   useEffect(() => {
     if (!open) return;
     if (players !== null || loading) return;
@@ -57,13 +60,14 @@ export default function PlayerPicker({
           setLoadErr(e instanceof Error ? e.message : String(e));
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, players, loading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, players]);
 
   // Close on Escape & click-outside.
   useEffect(() => {
