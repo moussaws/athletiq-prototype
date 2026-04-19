@@ -140,7 +140,8 @@ export function parseLabHint(search: URLSearchParams): LabLineupHint {
   const rawLineup = search.get(LAB_LINEUP_PARAM);
   if (rawLineup) {
     try {
-      const parsed = JSON.parse(decodeURIComponent(rawLineup));
+      // URLSearchParams.get() already decoded the percent-encoding once.
+      const parsed = JSON.parse(rawLineup);
       if (Array.isArray(parsed) && parsed.length === 11) {
         lineup = parsed.map((id) =>
           typeof id === "string" && id.length > 0 ? id : null,
@@ -164,7 +165,8 @@ export function buildLabHintUrl(
   const params = new URLSearchParams();
   params.set(LAB_FORMATION_PARAM, formation);
   if (trimmed.some((id) => id !== null)) {
-    params.set(LAB_LINEUP_PARAM, encodeURIComponent(JSON.stringify(trimmed)));
+    // URLSearchParams.toString() percent-encodes; don't double-encode.
+    params.set(LAB_LINEUP_PARAM, JSON.stringify(trimmed));
   }
   const base = origin ?? "";
   return `${base}/lab?${params.toString()}`;
