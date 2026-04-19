@@ -72,6 +72,14 @@ const CARDS: Card[] = [
     accent: "accent",
     tag: "Analyse",
   },
+  {
+    title: "Counterfactual Lab",
+    body: "Drag a defender, shift the back line, swap formations — pitch-control Φ recomputes on every edit. First interactive coach-facing counterfactual surface; builds on Umemoto & Fujii (2023) and Spearman (2018).",
+    href: "/lab",
+    cta: "Open the lab",
+    accent: "magenta",
+    tag: "Analyse",
+  },
 ];
 
 const PILLARS = [
